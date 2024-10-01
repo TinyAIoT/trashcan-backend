@@ -2,6 +2,7 @@ import mqtt from 'mqtt';
 import { mqttTrashParser } from './utils/mqtt';
 import { History } from './models/history';
 import { Sensor } from './models/sensor';
+import { Trashbin } from './models/trashbin';
 
 const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
   username: process.env.MQTT_CLIENT_NAME,
@@ -44,10 +45,17 @@ client.on('message', async (topic: any, message: any) => {
       const newHistory = new History({
         sensor: sensors[0].id,
         measureType: 'battery_level',
-        measurement: batteryLevel ? batteryLevel * 100 : 0,
+        measurement: batteryLevel ? Math.round(batteryLevel * 100) : 0,
       });
       const response = await newHistory.save();
       console.log(ttnDeviceName + ' with adding battery level =>', response);
+      let trashbin = await Trashbin.find({
+        'sensors': sensors[0].id
+      });
+      if (trashbin.length > 0) {
+        trashbin[0].batteryLevel = batteryLevel ? Math.round(batteryLevel * 100) : 0;
+        await trashbin[0].save();
+      }
     }
   }
 
@@ -61,10 +69,17 @@ client.on('message', async (topic: any, message: any) => {
       const newHistory = new History({
         sensor: sensors[0].id,
         measureType: 'fill_level',
-        measurement: fillLevel ? fillLevel * 100 : 0,
+        measurement: fillLevel ? Math.round(fillLevel * 100) : 0,
       });
       const response = await newHistory.save();
       console.log(ttnDeviceName + ' with adding fill level =>', response);
+      let trashbin = await Trashbin.find({
+        'sensors': sensors[0].id
+      });
+      if (trashbin.length > 0) {
+        trashbin[0].fillLevel = fillLevel ? Math.round(fillLevel * 100) : 0;
+        await trashbin[0].save();
+      }
     }
   }
 
@@ -78,10 +93,17 @@ client.on('message', async (topic: any, message: any) => {
       const newHistory = new History({
         sensor: sensors[0].id,
         measureType: 'signal_level',
-        measurement: fillLevel ? fillLevel * 100 : 0,
+        measurement: signalLevel ? Math.round(signalLevel * 100) : 0,
       });
       const response = await newHistory.save();
-      console.log(ttnDeviceName + ' with adding fill level =>', response);
+      console.log(ttnDeviceName + ' with adding signal level =>', response);
+      let trashbin = await Trashbin.find({
+        'sensors': sensors[0].id
+      });
+      if (trashbin.length > 0) {
+        trashbin[0].signalStrength = signalLevel ? Math.round(signalLevel * 100) : 0;
+        await trashbin[0].save();
+      }
     }
   }
 });
