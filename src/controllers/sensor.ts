@@ -31,7 +31,7 @@ export const getSensorById = async (req: any, res: any, next: any) => {
 
 export const postSensor = async (req: any, res: any, next: any) => {
   try {
-    const { trashbinID, measureType, applianceType } = req.body;
+    const { trashbinID, measureType, applianceType, ttnDeviceName } = req.body;
     const userID = req.user.id;
     const userRole = req.user.role;
 
@@ -71,6 +71,7 @@ export const postSensor = async (req: any, res: any, next: any) => {
       trashbin: trashbinID,
       measureType,
       applianceType,
+      ttnDeviceName,
     });
 
     await newSensor.save();

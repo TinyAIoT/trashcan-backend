@@ -2,6 +2,8 @@ import { Trashbin } from '../models/trashbin';
 import { TrashCollector } from '../models/trashcollector';
 import { ObjectId } from 'mongoose';
 import { mqttTrashParser } from '../utils/mqtt';
+import { Project } from '../models/project';
+import mongoose from 'mongoose';
 
 export const assignTrashbinsToTrashCollector = async (
   req: any,
@@ -73,6 +75,40 @@ export const assignTrashbinsToTrashCollector = async (
   }
 };
 
+export const getTrashCollector = async (req: any, res: any, next: any) => {
+  try {
+    const projectQuery = req.query.project;
+    let trashcollectors;
+    let count;
+
+    if (projectQuery) {
+      // Check if the projectQuery is a valid ObjectId
+      if (mongoose.Types.ObjectId.isValid(projectQuery)) {
+        trashcollectors = await TrashCollector.find({ project: projectQuery })
+          .populate('assignee')
+          .populate('project');
+      } else {
+        // If not a valid ObjectId, assume it's an identifier
+        const project = await Project.findOne({ identifier: projectQuery });
+        if (project) {
+          trashcollectors = await TrashCollector.find({ project: project._id })
+            .populate('assignee')
+            .populate('project');
+        } else {
+          return res.status(404).json({ message: 'Project not found' });
+        }
+      }
+    } else {
+      trashcollectors = await TrashCollector.find();
+    }
+
+    count = trashcollectors.length;
+
+    return res.status(200).json({ count, trashcollectors });
+  } catch (error: any) {
+    res.status(500).json({ message: error.message });
+  }
+};
 export const createTrashCollector = async (req: any, res: any, next: any) => {
   try {
     const userRole = req.user.role;

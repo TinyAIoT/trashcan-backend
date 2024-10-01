@@ -579,7 +579,7 @@ localhost:5000/api/v1
 
 #### Create Trashbin
 
-- **URL**: `/trashbins`
+- **URL**: `/trashbin`
 - **Method**: POST
 - **Description**: Create a new trashbin and associate it with a project. Only users with the role SUPERADMIN or ADMIN belonging to the project can create trashbins.
 - **Headers**:

@@ -1,15 +1,16 @@
 import mqtt from 'mqtt';
 import { mqttTrashParser } from './utils/mqtt';
 import { History } from './models/history';
+import { Sensor } from './models/sensor';
 
 const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
-  username: 'tinyaiot-project-seminar@ttn',
+  username: process.env.MQTT_CLIENT_NAME,
   password: process.env.MQTT_CLIENT_KEY,
 });
 
 client.on('connect', () => {
   console.log('Connected to MQTT broker');
-  const topic = `v3/tinyaiot-project-seminar@ttn/devices/trash-bin-01/up`;
+  const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/aiconn-trashcan/up`;
   client.subscribe(topic, () => {
     console.log(`Subscribed to topic '${topic}'`);
   });
@@ -17,7 +18,7 @@ client.on('connect', () => {
 
 client.on('connect', () => {
   console.log('Connected to MQTT broker');
-  const topic = `v3/tinyaiot-project-seminar@ttn/devices/trash-bin-02/up`;
+  const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/aiconn-trashcan/up`;
   client.subscribe(topic, () => {
     console.log(`Subscribed to topic '${topic}'`);
   });
@@ -30,51 +31,57 @@ client.on('message', async (topic: any, message: any) => {
   const { batteryLevel, fillLevel, signalLevel } = mqttTrashParser(
     JSON.parse(message)
   );
+  let ttnDeviceName = topic.replace('v3/' + process.env.MQTT_CLIENT_NAME + '/devices/', '');
+  ttnDeviceName = ttnDeviceName.replace('/up', '');
 
-  if (topic === 'v3/tinyaiot-project-seminar@ttn/devices/trash-bin-01/up') {
-    console.log('Receive payload in topic 01');
-    if (batteryLevel) {
+  if (batteryLevel) {
+    let query = {
+      'measureType': 'battery_level',
+      'ttnDeviceName': ttnDeviceName
+    }
+    let sensors = await Sensor.find(query);
+    if (sensors.length > 0) {
       const newHistory = new History({
-        sensor: '668ea283ce9d2654830be4f9',
+        sensor: sensors[0].id,
         measureType: 'battery_level',
         measurement: batteryLevel ? batteryLevel * 100 : 0,
       });
       const response = await newHistory.save();
-      console.log('In Topic 01 with adding battery level =>', response);
+      console.log(ttnDeviceName + ' with adding battery level =>', response);
     }
+  }
 
-    if (fillLevel) {
+  if (fillLevel) {
+    let query = {
+      'measureType': 'fill_level',
+      'ttnDeviceName': ttnDeviceName
+    }
+    let sensors = await Sensor.find(query);
+    if (sensors.length > 0) {
       const newHistory = new History({
-        sensor: '668ea252ce9d2654830be4f3',
+        sensor: sensors[0].id,
         measureType: 'fill_level',
         measurement: fillLevel ? fillLevel * 100 : 0,
       });
       const response = await newHistory.save();
-      console.log('In Topic 01 with adding fill level =>', response);
+      console.log(ttnDeviceName + ' with adding fill level =>', response);
     }
-  } else if (
-    topic === 'v3/tinyaiot-project-seminar@ttn/devices/trash-bin-02/up'
-  ) {
-    console.log('Receive payload in topic 02');
+  }
 
-    if (batteryLevel) {
-      const newHistory = new History({
-        sensor: '668ea2bbce9d2654830be505',
-        measureType: 'battery_level',
-        measurement: batteryLevel ? batteryLevel * 100 : 0,
-      });
-      const response = await newHistory.save();
-      console.log('In Topic 02 with adding battery level =>', response);
+  if (signalLevel) {
+    let query = {
+      'measureType': 'signal_level',
+      'ttnDeviceName': ttnDeviceName
     }
-
-    if (fillLevel) {
+    let sensors = await Sensor.find(query);
+    if (sensors.length > 0) {
       const newHistory = new History({
-        sensor: '668ea29dce9d2654830be4ff',
-        measureType: 'fill_level',
+        sensor: sensors[0].id,
+        measureType: 'signal_level',
         measurement: fillLevel ? fillLevel * 100 : 0,
       });
       const response = await newHistory.save();
-      console.log('In Topic 02 with adding fill level =>', response);
+      console.log(ttnDeviceName + ' with adding fill level =>', response);
     }
   }
 });

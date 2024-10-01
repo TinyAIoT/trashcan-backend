@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   createTrashCollector,
+  getTrashCollector,
   assignTrashbinsToTrashCollector,
   getTrashbinsAssignedToTrashCollector,
   testHistory,
@@ -9,6 +10,8 @@ import { authenticateToken } from '../middleware/authenticate';
 const router = Router();
 
 router.post('/', authenticateToken, createTrashCollector);
+
+router.get('/', authenticateToken, getTrashCollector);
 
 router.post('/assign', authenticateToken, assignTrashbinsToTrashCollector);
 
