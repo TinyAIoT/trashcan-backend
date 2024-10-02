@@ -3,6 +3,9 @@ import bodyParser from 'body-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
 const dotenv = require('dotenv');
+import http from 'http';
+import { Server as SocketIOServer } from 'socket.io';
+import { EventEmitter } from 'events';
 
 import authRouter from './routes/auth';
 import cityRouter from './routes/city';
@@ -12,6 +15,7 @@ import sensorRouter from './routes/sensor';
 import trashCollectorRouter from './routes/trashCollector';
 import noiseRouter from './routes/noise';
 import historyRouter from './routes/history';
+import { initializeMQTT } from './mqttClient';
 
 const mqtt = require('mqtt');
 
@@ -20,7 +24,29 @@ const PORT = process.env.PORT || 5001;
 
 dotenv.config();
 
-import './mqttClient';
+const server = http.createServer(app);
+const io = new SocketIOServer(server);
+
+// Create a global event emitter
+export const globalEventEmitter = new EventEmitter();
+
+// Initialize WebSocket
+io.on('connection', (socket) => {
+  console.log('New client connected');
+  
+  socket.on('disconnect', () => {
+    console.log('Client disconnected');
+  });
+});
+
+// Listen for MQTT messages
+globalEventEmitter.on('mqttMessage', (topic: string, message: string) => {
+  io.emit('newData', { topic, message });
+});
+
+// Initialize MQTT handler
+initializeMQTT(globalEventEmitter);
+
 // Middleware
 app.use(bodyParser.json());
 
@@ -56,6 +82,6 @@ app.get('/', (req, res) => {
 });
 
 // Start the server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
