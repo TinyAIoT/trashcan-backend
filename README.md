@@ -16,7 +16,7 @@ Before you begin, ensure you have the following installed on your system:
 
 1. Clone the repository:
    ```
-   git clone https://github.com/tinyaiot-ps/backend.git
+   git clone git@github.com:TinyAIoT/trashcan-backend.git
    cd backend
    ```
 
