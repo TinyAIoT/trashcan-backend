@@ -6,7 +6,7 @@ import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
 
 export function initializeMQTT(eventEmitter: EventEmitter) {
-  const client = mqtt.connect('mqtt://localhost:1883', {
+  const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
     username: process.env.MQTT_CLIENT_NAME,
     password: process.env.MQTT_CLIENT_KEY,
   });
@@ -31,8 +31,10 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
     console.log('EVENT RECIEVED with TOPIC', topic);
     console.log('Received message:', message.toString());
 
+    const message_json = JSON.parse(message);
+
     const { batteryLevel, fillLevel, signalLevel } = mqttTrashParser(
-      JSON.parse(message)
+      message_json
     );
     // const message_parsed = JSON.parse(message);
     // const batteryLevel = message_parsed.battery_level;
@@ -55,7 +57,10 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         });
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding battery level =>', response);
-        eventEmitter.emit('mqttMessage', 'battery_level', batteryLevel);
+        eventEmitter.emit('mqttMessage', 'battery_level', {
+          'battery_level':batteryLevel,
+          'received_at': message_json.received_at
+        });
 
         let trashbin = await Trashbin.find({
           'sensors': sensors[0].id
@@ -81,7 +86,10 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         });
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding fill level =>', response);
-        eventEmitter.emit('mqttMessage', 'fill_level', fillLevel);
+        eventEmitter.emit('mqttMessage', 'fill_level', {
+          'fill_level': fillLevel,
+          'received_at': message_json.received_at
+        });
         
         let trashbin = await Trashbin.find({
           'sensors': sensors[0].id
@@ -107,7 +115,10 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         });
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding signal level =>', response);
-        eventEmitter.emit('mqttMessage', 'signal_level', signalLevel);
+        eventEmitter.emit('mqttMessage', 'signal_level', {
+          'signal_level': signalLevel,
+          'received_at': message_json.received_at
+        });
         
         let trashbin = await Trashbin.find({
           'sensors': sensors[0].id
