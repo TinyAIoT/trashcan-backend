@@ -426,7 +426,7 @@ localhost:5000/api/v1
 
 #### Get All Sensors
 
-- **URL**: `/sensors`
+- **URL**: `/sensor`
 - **Method**: GET
 - **Description**: Get a list of all sensors
 - **Headers**:
@@ -453,7 +453,7 @@ localhost:5000/api/v1
 
 #### Get Sensor by ID
 
-- **URL**: `/sensors/{id}`
+- **URL**: `/sensor/{id}`
 - **Method**: GET
 - **Description**: Get a specific sensor by its ID
 - **Headers**:
@@ -494,7 +494,7 @@ localhost:5000/api/v1
 
 #### Create Sensor
 
-- **URL**: `/sensors`
+- **URL**: `/sensor`
 - **Method**: POST
 - **Description**: Create a new sensor and associate it with a trashbin. Only users associated with the project that the trashbin belongs to can create sensors within that project.
 - **Headers**:
@@ -526,11 +526,11 @@ localhost:5000/api/v1
 
 ### Trashbin
 
-#### Get All Trashbins
+#### Get All trashbins
 
-- **URL**: `/trashbins`
+- **URL**: `/trashbin`
 - **Method**: GET
-- **Description**: Get a list of all trash bins
+- **Description**: Get a list of all trashbins
 - **Headers**:
   - `Authorization` (String) [required]: Bearer token
 - **Status Codes**:
@@ -552,7 +552,7 @@ localhost:5000/api/v1
 
 #### Get Trashbin by ID
 
-- **URL**: `/trashbins/{id}`
+- **URL**: `/trashbin/{id}`
 - **Method**: GET
 - **Description**: Get a specific trash bin by its ID
 - **Headers**:
@@ -603,7 +603,7 @@ localhost:5000/api/v1
 
 #### Update Trashbin
 
-- **URL**: `/trashbins/{id}`
+- **URL**: `/trashbin/{id}`
 - **Method**: PATCH
 - **Description**: Update an existing trashbin. Only users with the role SUPERADMIN or ADMIN belonging to the project can update trashbins.
 - **Headers**:
