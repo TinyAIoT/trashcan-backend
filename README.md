@@ -502,6 +502,8 @@ localhost:5000/api/v1
 - **Body Parameters**:
   - `trashbinID` (String): The ID of the associated trashbin
   - `measure` (String): The type of measure, either `fill_level` or `battery_level`
+  - `applianceType` (String): "trashbin" or "noise-detector"
+  - `ttnDeviceName` (String): the device's name on TTN
 - **Status Codes**:
   - 200: OK
   - 400: Bad Request (trashbinID is required)
