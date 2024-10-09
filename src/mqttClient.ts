@@ -41,7 +41,7 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
     let ttnDeviceName = topic.replace('v3/' + process.env.MQTT_CLIENT_NAME + '/devices/', '');
     ttnDeviceName = ttnDeviceName.replace('/up', '');
 
-    if (batteryLevel) {
+    if (batteryLevel != undefined) {
       let query = {
         'measureType': 'battery_level',
         'ttnDeviceName': ttnDeviceName
@@ -56,7 +56,8 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding battery level =>', response);
         eventEmitter.emit('mqttMessage', 'battery_level', {
-          'battery_level':batteryLevel,
+          'sensor_id': sensors[0].id,
+          'battery_level': batteryLevel,
           'received_at': message_json.received_at
         });
 
@@ -70,7 +71,7 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
       }
     }
 
-    if (fillLevel) {
+    if (fillLevel != undefined) {
       let query = {
         'measureType': 'fill_level',
         'ttnDeviceName': ttnDeviceName
@@ -85,6 +86,7 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding fill level =>', response);
         eventEmitter.emit('mqttMessage', 'fill_level', {
+          'sensor_id': sensors[0].id,
           'fill_level': fillLevel,
           'received_at': message_json.received_at
         });
@@ -99,7 +101,7 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
       }
     }
 
-    if (signalLevel) {
+    if (signalLevel != undefined) {
       let query = {
         'measureType': 'signal_level',
         'ttnDeviceName': ttnDeviceName
@@ -114,6 +116,7 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding signal level =>', response);
         eventEmitter.emit('mqttMessage', 'signal_level', {
+          'sensor_id': sensors[0].id,
           'signal_level': signalLevel,
           'received_at': message_json.received_at
         });
