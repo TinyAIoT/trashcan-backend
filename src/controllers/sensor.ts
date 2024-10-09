@@ -1,6 +1,7 @@
 import { Trashbin } from '../models/trashbin';
 import { Project } from '../models/project';
 import { Sensor } from '../models/sensor';
+import { subscribeSensor } from '../mqttClient';
 
 export const getAllSensors = async (req: any, res: any, next: any) => {
   try {
@@ -79,6 +80,8 @@ export const postSensor = async (req: any, res: any, next: any) => {
     // Push the new sensor ID into the trashbin.sensors array
     trashbin.sensors.push(newSensor._id);
     await trashbin.save();
+
+    subscribeSensor(ttnDeviceName);
 
     return res
       .status(200)

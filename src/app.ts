@@ -25,7 +25,11 @@ const PORT = process.env.PORT || 5001;
 dotenv.config();
 
 const server = http.createServer(app);
-const io = new SocketIOServer(server);
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: '*',
+  }
+});
 
 // Create a global event emitter
 export const globalEventEmitter = new EventEmitter();

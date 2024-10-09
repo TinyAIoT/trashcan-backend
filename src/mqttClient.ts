@@ -5,26 +5,24 @@ import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
 
+let client: mqtt.MqttClient;
+let subscribedTopics: string[] = [];
+
 export function initializeMQTT(eventEmitter: EventEmitter) {
-  const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
+  client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
     username: process.env.MQTT_CLIENT_NAME,
     password: process.env.MQTT_CLIENT_KEY,
   });
 
-  client.on('connect', () => {
+  client.on('connect', async () => {
     console.log('Connected to MQTT broker');
-    const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/aiconn-trashcan/up`;
-    client.subscribe(topic, () => {
-      console.log(`Subscribed to topic '${topic}'`);
-    });
-  });
-
-  client.on('connect', () => {
-    console.log('Connected to MQTT broker');
-    const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/aiconn-trashcan/up`;
-    client.subscribe(topic, () => {
-      console.log(`Subscribed to topic '${topic}'`);
-    });
+    let sensors = await Sensor.find();
+    if (sensors.length > 0) {
+      const uniqueDeviceNames = [...new Set(sensors.map(obj => obj.ttnDeviceName))];
+      uniqueDeviceNames.forEach(deviceName => {
+        subscribeSensor(deviceName);
+      })
+    }
   });
 
   client.on('message', async (topic: any, message: any) => {
@@ -135,4 +133,18 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
     console.error('MQTT connection error:', error);
   });
   return client;
+}
+
+export function subscribeSensor(deviceName: string) {
+  if (!client) {
+    throw new Error('MQTT client not initialized');
+  }
+
+  const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/` + deviceName + `/up`;
+  if(!subscribedTopics.includes(topic)) {
+    client.subscribe(topic, () => {
+      subscribedTopics.push(topic);
+      console.log(`Subscribed to topic '${topic}'`);
+    });
+  }
 }
