@@ -20,12 +20,6 @@ import { initializeMQTT } from './mqttClient';
 const mqtt = require('mqtt');
 
 const app = express();
-app.use(
-  cors({
-      origin: '*',
-      credentials: true,
-  })
-);
 
 const PORT = process.env.PORT || 5001;
 
@@ -62,14 +56,22 @@ initializeMQTT(globalEventEmitter);
 app.use(bodyParser.json());
 
 // Update CORS policy to whitelist every client domain
-app.use((req: any, res: any, next: any) => {
+app.use(
+  cors({
+    origin: '*', // Allows all origins
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+app.options('*', (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader(
     'Access-Control-Allow-Methods',
     'GET, POST, PUT, PATCH, DELETE, OPTIONS'
   );
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  next();
+  res.send();
 });
 
 app.use('/api/v1/auth', authRouter);
