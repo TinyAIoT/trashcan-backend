@@ -60,7 +60,7 @@ app.use(
   cors({
     origin: '*', // Allows all origins
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['*'],
   })
 );
 
