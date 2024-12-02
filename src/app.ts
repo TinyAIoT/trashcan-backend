@@ -20,6 +20,12 @@ import { initializeMQTT } from './mqttClient';
 const mqtt = require('mqtt');
 
 const app = express();
+app.use(
+  cors({
+      origin: '*',
+  })
+);
+
 const PORT = process.env.PORT || 5001;
 
 dotenv.config();
