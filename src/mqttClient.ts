@@ -9,7 +9,7 @@ let client: mqtt.MqttClient;
 let subscribedTopics: string[] = [];
 
 export function initializeMQTT(eventEmitter: EventEmitter) {
-  client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
+  client = mqtt.connect('mqtt://localhost:1883', {
     username: process.env.MQTT_CLIENT_NAME,
     password: process.env.MQTT_CLIENT_KEY,
   });

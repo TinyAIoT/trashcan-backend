@@ -13,7 +13,7 @@ const router = Router();
 router.post('/login', loginUser);
 
 // Signup route
-router.post('/signup', authenticateToken, signupUser);
+router.post('/signup', signupUser);
 
 // router.post('/create/superadmin', createSuperAdmin);
 
