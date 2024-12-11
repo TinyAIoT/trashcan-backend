@@ -36,7 +36,7 @@ function initializeApplicationMQTT(
   app: { name: string; key: string; parser: Function },
   eventEmitter: EventEmitter
 ) {
-  const client = mqtt.connect('mqtt://localhost:1883', {
+  const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
     username: app.name,
     password: app.key,
   });
