@@ -126,7 +126,7 @@ async function updateSensorData(
 
     const trashbin = await Trashbin.find({ sensors: sensors[0].id });
     if (trashbin.length > 0) {
-      const key: 'signalStrength' | 'batteryLevel' | 'fillLevel' = measureType === 'signal_level' ? 'signalStrength' : measureType as 'batteryLevel' | 'fillLevel';
+      const key: 'signalStrength' | 'batteryLevel' | 'fillLevel' = measureType === 'signal_level' ? 'signalStrength' : (measureType=== 'fill_level') ? 'fillLevel' : 'batteryLevel';
       trashbin[0][key] = Math.round(measurement * 100);
       await trashbin[0].save();
     }
