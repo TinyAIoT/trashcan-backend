@@ -1,6 +1,8 @@
 import { generateUniqueTrashbinIdentifier } from '../service/trashbin';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
+import { History } from '../models/history';
+
 import mongoose from 'mongoose';
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
@@ -358,5 +360,85 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
     }
   } catch (error: any) {
     res.status(500).json({ message: error.message });
+  }
+};
+// Core logic for updating fill-level changes
+export const updateFillLevelChangesCore = async (hours: number | null = null) => {
+  try {
+    // Fetch all trashbins
+    const trashbins = await Trashbin.find().populate('sensors');
+    console.log('Updating fill-level changes for trashbins:', trashbins);
+
+    for (const trashbin of trashbins) {
+      for (const sensorId of trashbin.sensors) {
+        let latestHistory, oldestHistory;
+
+        if (hours !== null) {
+          // Calculate cutoff date based on the provided hours
+          const cutoffDate = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+          // Fetch the newest record after the cutoff date
+          latestHistory = await History.findOne({
+            sensor: sensorId,
+            measureType: 'fill_level',
+            createdAt: { $gte: cutoffDate },
+          }).sort({ createdAt: -1 });
+
+          // Fetch the oldest record after the cutoff date
+          oldestHistory = await History.findOne({
+            sensor: sensorId,
+            measureType: 'fill_level',
+            createdAt: { $gte: cutoffDate },
+          }).sort({ createdAt: 1 });
+        } else {
+          // Fetch the two most recent history records if no hours are provided
+          const histories = await History.find({
+            sensor: sensorId,
+            measureType: 'fill_level',
+          })
+            .sort({ createdAt: -1 }) // Sort by createdAt descending
+            .limit(2); // Limit to the two most recent records
+
+          if (histories.length ) {
+            [latestHistory, oldestHistory] = histories;
+          }
+        }
+
+        console.log(`Histories for sensor ${sensorId}:`, { latestHistory, oldestHistory });
+
+        if (latestHistory && oldestHistory) {
+          // Ensure both records have valid `measurement` values
+          if (
+            typeof latestHistory.measurement === 'number' &&
+            typeof oldestHistory.measurement === 'number'
+          ) {
+            // Calculate the fill level change
+            const fillLevelChange = latestHistory.measurement - oldestHistory.measurement;
+
+            // Update the `fillLevelChange` in the corresponding Trashbin
+            await Trashbin.findByIdAndUpdate(trashbin._id, {
+              fillLevelChange,
+            });
+
+            console.log(
+              `Updated fillLevelChange for trashbin ${trashbin._id} (sensor: ${sensorId}): ${fillLevelChange}`
+            );
+          } else {
+            console.error(
+              `Invalid measurement values for trashbin ${trashbin._id} (sensor: ${sensorId}).`
+            );
+          }
+        } else {
+          console.warn(
+            `Not enough history data for trashbin ${trashbin._id} (sensor: ${sensorId}).`
+          );
+        }
+      }
+    }
+
+    console.log('Fill-level changes updated successfully.');
+  } catch (error) {
+    console.error('Error updating fill-level changes:', error);
+    throw error;
   }
 };

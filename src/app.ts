@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -13,6 +13,7 @@ import projectRouter from './routes/project';
 import trashbinRouter from './routes/trashbin';
 import sensorRouter from './routes/sensor';
 import trashCollectorRouter from './routes/trashCollector';
+import { updateFillLevelChangesCore } from './controllers/trashbin';
 import noiseRouter from './routes/noise';
 import historyRouter from './routes/history';
 import { initializeMQTT } from './mqttClient';
@@ -77,8 +78,22 @@ app.use('/api/v1/history', historyRouter);
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_DB_URL || '', {})
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.log(err));
+  .then(async () => {
+    console.log('MongoDB connected');
+
+    //Trigger the fill-level changes update on server startup
+    try {
+      console.log('Updating fill-level changes...');
+      await updateFillLevelChangesCore(2400); // Assuming this is your function
+      console.log('Fill-level changes updated successfully.');
+    } catch (error) {
+      console.error('Error updating fill-level changes:', error);
+    }
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+  });
+
 
 // Define a route
 app.get('/', (req, res) => {
