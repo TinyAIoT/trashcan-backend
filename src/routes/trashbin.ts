@@ -12,14 +12,14 @@ const router = Router();
 
 // Get a trash item by ID
 router.get('/:id', authenticateToken, getTrashItemById);
-router.put('/update-fill-level-changes', updateFillLevelChangesCore,);
-
 
 // Get all trash items
 router.get('/', authenticateToken, getAllTrashItems);
 
 // Create a new trash item
 router.post('/', authenticateToken, createTrashItem);
+//update fill level change
+router.put('/updateFillLevelChanges', updateFillLevelChangesCore);
 
 router.patch('/:id', authenticateToken, updateTrashItem);
 

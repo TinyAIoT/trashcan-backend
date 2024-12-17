@@ -20,7 +20,10 @@ import { initializeMQTT } from './mqttClient';
 
 const mqtt = require('mqtt');
 
+
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 5001;
 
 dotenv.config();
@@ -54,7 +57,7 @@ initializeMQTT(globalEventEmitter);
 
 // Middleware
 app.use(bodyParser.json());
-
+app.use(express.json());
 // Update CORS policy to whitelist every client domain
 app.use((req: any, res: any, next: any) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -82,13 +85,13 @@ mongoose
     console.log('MongoDB connected');
 
     //Trigger the fill-level changes update on server startup
-    try {
-      console.log('Updating fill-level changes...');
-      await updateFillLevelChangesCore(2400); // Assuming this is your function
-      console.log('Fill-level changes updated successfully.');
-    } catch (error) {
-      console.error('Error updating fill-level changes:', error);
-    }
+  //   try {
+  //     console.log('Updating fill-level changes...');
+  //     await updateFillLevelChangesCore(2400); // Assuming this is your function
+  //     console.log('Fill-level changes updated successfully.');
+  //   } catch (error) {
+  //     console.error('Error updating fill-level changes:', error);
+  // }
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);

@@ -2,12 +2,12 @@ import { generateUniqueTrashbinIdentifier } from '../service/trashbin';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
 import { History } from '../models/history';
+import { Types } from 'mongoose';
 
 import mongoose from 'mongoose';
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
   try {
-    console.log('Inside Trash Can');
     const projectId = req.body.project;
     const trashcanName = req.body.name;
     const longitude = req.body.longitude;
@@ -41,7 +41,7 @@ export const createTrashItem = async (req: any, res: any, next: any) => {
 
       // Fetch location string from the longitude and latitude
 
-      console.log('Coming inside line # 41');
+    
 
       const trashbin = new Trashbin({
         name: trashcanName,
@@ -173,20 +173,32 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
     const projectQuery = req.query.project;
     let trashbins;
     let count;
+    console.log("Received project query:", projectQuery);
+     if(!projectQuery){
+      return res.status(400).json({ message: "Project query parameter is required" });
+     }
 
     if (projectQuery) {
       // Check if the projectQuery is a valid ObjectId
       if (mongoose.Types.ObjectId.isValid(projectQuery)) {
+     //   console.log("Querying trashbins by ObjectId:", projectQuery);
         trashbins = await Trashbin.find({ project: projectQuery })
           .populate('assignee')
           .populate('project');
       } else {
+        //console.log("Querying trashbins by project identifier:", projectQuery);
         // If not a valid ObjectId, assume it's an identifier
         const project = await Project.findOne({ identifier: projectQuery });
+        if (!project) {
+          console.error("Project not found for identifier:", projectQuery);
+          return res.status(404).json({ message: "Project not found" });
+        }
         if (project) {
           trashbins = await Trashbin.find({ project: project._id })
             .populate('assignee')
             .populate('project');
+               // console.log("Fetched trashbins:", trashbins);
+
         } else {
           return res.status(404).json({ message: 'Project not found' });
         }
@@ -362,83 +374,80 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
     res.status(500).json({ message: error.message });
   }
 };
-// Core logic for updating fill-level changes
-export const updateFillLevelChangesCore = async (hours: number | null = null) => {
+
+export const updateFillLevelChangesCore = async (req: any, res: any): Promise<void> => {
   try {
+    const { hours } = req.body;
+    // Validate the `hours` input
+    if (hours !== undefined && (typeof hours !== 'number' || hours < 0)) {
+      return res.status(400).json({ error: '`hours` must be a positive number or null.' });
+    }
+
+    const now: Date = new Date();
+    const cutoffDate: Date = hours
+      ? new Date(now.getTime() - hours * 60 * 60 * 1000)
+      : new Date(0); // Default to epoch if hours is null
     // Fetch all trashbins
-    const trashbins = await Trashbin.find().populate('sensors');
-    console.log('Updating fill-level changes for trashbins:', trashbins);
+    const trashbins = await Trashbin.find();
+    if (!trashbins.length) {
+      console.warn('No trashbins found.');
+      return res.status(404).json({ message: 'No trashbins found.' });
+    }
 
+    // Iterate over each trashbin
     for (const trashbin of trashbins) {
+      let totalFillLevelChange = 0;
+
+      if (!trashbin.sensors || trashbin.sensors.length === 0) {     
+        continue;
+      }
+
+      // Process each sensor for the current trashbin
       for (const sensorId of trashbin.sensors) {
-        let latestHistory, oldestHistory;
+        // Query to find all history, converting string dates dynamically
+        const histories = await History.aggregate([
+          {
+            $match: {
+              sensor: new Types.ObjectId(sensorId),
+              measureType: 'fill_level',
+              $expr: {
+                $and: [
+                  { $gte: [{ $toDate: '$createdAt' }, cutoffDate] },
+                  { $lte: [{ $toDate: '$createdAt' }, now] },
+                ],
+              },
+            },
+          },
+          { $sort: { createdAt: 1 } }, // Sort by createdAt ascending
+        ]);
 
-        if (hours !== null) {
-          // Calculate cutoff date based on the provided hours
-          const cutoffDate = new Date(Date.now() - hours * 60 * 60 * 1000);
+        if (histories.length >= 1) {
+          const oldestMeasurement = histories[0].measurement; // First entry
+          const newestMeasurement = histories[histories.length - 1].measurement; // Last entry
+          const fillLevelChange = newestMeasurement - oldestMeasurement;
 
-          // Fetch the newest record after the cutoff date
-          latestHistory = await History.findOne({
-            sensor: sensorId,
-            measureType: 'fill_level',
-            createdAt: { $gte: cutoffDate },
-          }).sort({ createdAt: -1 });
-
-          // Fetch the oldest record after the cutoff date
-          oldestHistory = await History.findOne({
-            sensor: sensorId,
-            measureType: 'fill_level',
-            createdAt: { $gte: cutoffDate },
-          }).sort({ createdAt: 1 });
+          totalFillLevelChange += fillLevelChange;
         } else {
-          // Fetch the two most recent history records if no hours are provided
-          const histories = await History.find({
-            sensor: sensorId,
-            measureType: 'fill_level',
-          })
-            .sort({ createdAt: -1 }) // Sort by createdAt descending
-            .limit(2); // Limit to the two most recent records
-
-          if (histories.length ) {
-            [latestHistory, oldestHistory] = histories;
-          }
+          console.warn(`No valid history data found for Sensor: ${sensorId}`);
         }
+      }
 
-        console.log(`Histories for sensor ${sensorId}:`, { latestHistory, oldestHistory });
-
-        if (latestHistory && oldestHistory) {
-          // Ensure both records have valid `measurement` values
-          if (
-            typeof latestHistory.measurement === 'number' &&
-            typeof oldestHistory.measurement === 'number'
-          ) {
-            // Calculate the fill level change
-            const fillLevelChange = latestHistory.measurement - oldestHistory.measurement;
-
-            // Update the `fillLevelChange` in the corresponding Trashbin
-            await Trashbin.findByIdAndUpdate(trashbin._id, {
-              fillLevelChange,
-            });
-
-            console.log(
-              `Updated fillLevelChange for trashbin ${trashbin._id} (sensor: ${sensorId}): ${fillLevelChange}`
-            );
-          } else {
-            console.error(
-              `Invalid measurement values for trashbin ${trashbin._id} (sensor: ${sensorId}).`
-            );
-          }
-        } else {
-          console.warn(
-            `Not enough history data for trashbin ${trashbin._id} (sensor: ${sensorId}).`
-          );
-        }
+      // Update trashbin's total fill-level change
+      if (totalFillLevelChange !== 0) {
+        await Trashbin.findByIdAndUpdate(trashbin._id, { fillLevelChange: totalFillLevelChange });
+      } else {
+        console.log(`No changes to update for Trashbin: ${trashbin._id}`);
       }
     }
 
-    console.log('Fill-level changes updated successfully.');
+    res.status(200).json({ message: 'Fill-level changes updated successfully for all trashbins.' });
   } catch (error) {
     console.error('Error updating fill-level changes:', error);
-    throw error;
+    res.status(500).json({ error: 'An error occurred while updating fill-level changes.' });
   }
 };
+
+
+
+
+
