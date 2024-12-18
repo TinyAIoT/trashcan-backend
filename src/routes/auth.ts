@@ -11,9 +11,8 @@ const router = Router();
 
 // Login route
 router.post('/login', loginUser);
-
 // Signup route
-router.post('/signup', signupUser);
+router.post('/signup', authenticateToken, signupUser);
 
 // router.post('/create/superadmin', createSuperAdmin);
 
