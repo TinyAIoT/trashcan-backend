@@ -83,15 +83,6 @@ mongoose
   .connect(process.env.MONGO_DB_URL || '', {})
   .then(async () => {
     console.log('MongoDB connected');
-
-    //Trigger the fill-level changes update on server startup
-  //   try {
-  //     console.log('Updating fill-level changes...');
-  //     await updateFillLevelChangesCore(2400); // Assuming this is your function
-  //     console.log('Fill-level changes updated successfully.');
-  //   } catch (error) {
-  //     console.error('Error updating fill-level changes:', error);
-  // }
   })
   .catch((err) => {
     console.error('MongoDB connection error:', err);
