@@ -2,8 +2,6 @@ import { generateUniqueTrashbinIdentifier } from '../service/trashbin';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
 import { History } from '../models/history';
-import { Types } from 'mongoose';
-
 import mongoose from 'mongoose';
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
@@ -173,7 +171,6 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
     const projectQuery = req.query.project;
     let trashbins;
     let count;
-    console.log("Received project query:", projectQuery);
      if(!projectQuery){
       return res.status(400).json({ message: "Project query parameter is required" });
      }
@@ -181,12 +178,10 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
     if (projectQuery) {
       // Check if the projectQuery is a valid ObjectId
       if (mongoose.Types.ObjectId.isValid(projectQuery)) {
-     //   console.log("Querying trashbins by ObjectId:", projectQuery);
         trashbins = await Trashbin.find({ project: projectQuery })
           .populate('assignee')
           .populate('project');
       } else {
-        //console.log("Querying trashbins by project identifier:", projectQuery);
         // If not a valid ObjectId, assume it's an identifier
         const project = await Project.findOne({ identifier: projectQuery });
         if (!project) {
@@ -197,7 +192,7 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
           trashbins = await Trashbin.find({ project: project._id })
             .populate('assignee')
             .populate('project');
-               // console.log("Fetched trashbins:", trashbins);
+              
 
         } else {
           return res.status(404).json({ message: 'Project not found' });
@@ -408,7 +403,7 @@ export const updateFillLevelChangesCore = async (req: any, res: any): Promise<vo
         const histories = await History.aggregate([
           {
             $match: {
-              sensor: new Types.ObjectId(sensorId),
+              sensor: new mongoose.Types.ObjectId(sensorId),
               measureType: 'fill_level',
               $expr: {
                 $and: [

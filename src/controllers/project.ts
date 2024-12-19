@@ -165,7 +165,6 @@ export const updateProject = async (req: any, res: any) => {
       updatedProject.users.forEach(async (userId: any) => {
         const user: any = await User.findById(userId);
         if (!user?.projects.includes(updatedProject._id ) && user) {
-          console.log("users",user)
           user?.projects.push(updatedProject._id);
           await user.save();
         }

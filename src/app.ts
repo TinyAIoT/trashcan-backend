@@ -56,8 +56,8 @@ globalEventEmitter.on('mqttMessage', (topic: string, message: string) => {
 initializeMQTT(globalEventEmitter);
 
 // Middleware
-app.use(bodyParser.json());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Update CORS policy to whitelist every client domain
 app.use((req: any, res: any, next: any) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
