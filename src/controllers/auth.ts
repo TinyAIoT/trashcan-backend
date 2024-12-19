@@ -47,20 +47,18 @@ export const signupUser = async (req: any, res: any) => {
    const currentUserRole = req.user.role; // Assuming user role is attached to the request by auth middleware
 
   try {
-    // // Check if the current user has the right to create the specified role
-    // if (currentUserRole === 'ADMIN' && role !== 'USER') {
-    //   return res
-    //     .status(403)
-    //     .json({ message: 'Admins can only create user type users.' });
-    // }
-    // if (currentUserRole === 'SUPERADMIN' && role === 'SUPERADMIN') {
-    //   return res
-    //     .status(403)
-    //     .json({ message: 'Cannot create another SUPERADMIN.' });
-    // }
+    // Check if the current user has the right to create the specified role
+    if (currentUserRole === 'ADMIN' && role !== 'USER') {
+      return res
+        .status(403)
+        .json({ message: 'Admins can only create user type users.' });
+    }
+    if (currentUserRole === 'SUPERADMIN' && role === 'SUPERADMIN') {
+      return res
+        .status(403)
+        .json({ message: 'Cannot create another SUPERADMIN.' });
+    }
 
-    // console.log('Current User Id =>', currentUserId);
-    // console.log('Current User Role =>', currentUserRole);
 
     // Validate email uniqueness
     const existingUser = await User.findOne({ email });
