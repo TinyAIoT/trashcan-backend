@@ -3,11 +3,11 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 export const loginUser = async (req: any, res: any) => {
-  const { email, password } = req.body;
+  const { name, password } = req.body;
 
   try {
-    // Find the user by email
-    const user = await User.findOne({ email });
+    // Find the user by name
+    const user = await User.findOne({ name });
     if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
@@ -30,7 +30,7 @@ export const loginUser = async (req: any, res: any) => {
       message: 'Logged in successfully.',
       user: {
         id: user._id,
-        email: user.email,
+        name: user.name,
         role: user.role,
       },
       token,
@@ -42,7 +42,7 @@ export const loginUser = async (req: any, res: any) => {
 
 export const signupUser = async (req: any, res: any) => {
   console.log('Coming inside signup ====>');
-  const { role, email, password, projects, preferences } = req.body;
+  const { role, name, password, projects, preferences } = req.body;
   const currentUserId = req.user.id; // Assuming user ID is attached to the request by auth middleware
   const currentUserRole = req.user.role; // Assuming user role is attached to the request by auth middleware
 
@@ -62,8 +62,8 @@ export const signupUser = async (req: any, res: any) => {
     console.log('Current User Id =>', currentUserId);
     console.log('Current User Role =>', currentUserRole);
 
-    // Validate email uniqueness
-    const existingUser = await User.findOne({ email });
+    // Validate name uniqueness
+    const existingUser = await User.findOne({ name });
     if (existingUser) {
       return res.status(409).json({ message: 'Email already in use.' });
     }
@@ -81,7 +81,7 @@ export const signupUser = async (req: any, res: any) => {
     // Create user
     const newUser = new User({
       role,
-      email,
+      name,
       password: hashedPassword,
       projects,
       preferences: userPreferences,
@@ -98,11 +98,11 @@ export const signupUser = async (req: any, res: any) => {
 };
 
 export const createSuperAdmin = async (req: any, res: any) => {
-  const { email, password, preferences } = req.body;
+  const { name, password, preferences } = req.body;
 
   try {
-    // Validate email uniqueness
-    const existingUser = await User.findOne({ email });
+    // Validate name uniqueness
+    const existingUser = await User.findOne({ name });
     if (existingUser) {
       return res.status(409).json({ message: 'Email already in use.' });
     }
@@ -114,7 +114,7 @@ export const createSuperAdmin = async (req: any, res: any) => {
     // Create superadmin
     const newSuperAdmin = new User({
       role: 'SUPERADMIN',
-      email,
+      name,
       password: hashedPassword,
       preferences,
     });
@@ -131,7 +131,7 @@ export const createSuperAdmin = async (req: any, res: any) => {
 };
 
 export const updateUser = async (req: any, res: any) => {
-  const { userId, role, email, password, projects, preferences } = req.body;
+  const { userId, role, name, password, projects, preferences } = req.body;
   const currentUserId = req.user.id;
   const currentUserRole = req.user.role;
 
@@ -165,13 +165,13 @@ export const updateUser = async (req: any, res: any) => {
 
     // SuperAdmin can update all users, no additional checks needed
 
-    // Validate email uniqueness if email is being updated
-    if (email && email !== userToUpdate.email) {
-      const existingUser = await User.findOne({ email });
+    // Validate name uniqueness if name is being updated
+    if (name && name !== userToUpdate.name) {
+      const existingUser = await User.findOne({ name });
       if (existingUser) {
         return res.status(409).json({ message: 'Email already in use.' });
       }
-      userToUpdate.email = email;
+      userToUpdate.name = name;
     }
 
     // Hash password if it's being updated
