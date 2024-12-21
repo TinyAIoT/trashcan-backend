@@ -9,15 +9,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getNoiseSensorHistoryBySensorId = exports.addNoiseHistory = void 0;
+exports.anySample = exports.getNoiseSensorHistoryBySensorId = exports.addNoiseHistory = void 0;
 const history_1 = require("../models/history");
 const sensor_1 = require("../models/sensor");
 const project_1 = require("../models/project");
+const mqtt_1 = require("../utils/mqtt");
 const addNoiseHistory = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { projectId, sensorId, prediction, value } = req.body;
-        // For now always send the projectId as 6681292999d92893669ea287
-        // For now always send the sensorId as "668945bfbc487cfc392c0068"
+        // For now always send the projectId as 668e605974f99f35291be526
+        // For now always send the sensorId as 668e92ca094613ff3bade435
         // Check if the project exists
         const project = yield project_1.Project.findById(projectId);
         if (!project) {
@@ -67,3 +68,51 @@ const getNoiseSensorHistoryBySensorId = (req, res, next) => __awaiter(void 0, vo
     }
 });
 exports.getNoiseSensorHistoryBySensorId = getNoiseSensorHistoryBySensorId;
+const anySample = (req, res, next) => {
+    try {
+        const testMessage = `{
+	"end_device_ids": {
+		"device_id": "trash-bin-01",
+		"application_ids": {
+			"application_id": "tinyaiot-project-seminar"
+		},
+		"dev_eui": "9876B6FFFE12FD2D",
+		"join_eui": "0000000000000000"
+	},
+	"correlation_ids": [
+		"as:up:01J1WZCHYT2RYVV9P3KDP3GGKC",
+		"rpc:/ttn.lorawan.v3.AppAs/SimulateUplink:0c89dab4-4185-43b8-ab1f-78608a201e6b"
+	],
+	"received_at": "2024-07-03T18:58:21.774534711Z",
+	"uplink_message": {
+		"f_port": 1,
+		"frm_payload": "PA/CAQ==",
+		"rx_metadata": [
+			{
+				"gateway_ids": {
+					"gateway_id": "test"
+				},
+				"rssi": -110,
+				"channel_rssi": -110,
+				"snr": 4.2
+			}
+		],
+		"settings": {
+			"data_rate": {
+				"lora": {
+					"bandwidth": 125000,
+					"spreading_factor": 7
+				}
+			},
+			"frequency": "868000000"
+		}
+	},
+	"simulated": true
+}`;
+        const { batteryLevel, fillLevel, signalLevel } = (0, mqtt_1.mqttTrashParser)(JSON.parse(testMessage));
+        console.log(batteryLevel, fillLevel, signalLevel);
+        return res.status(200).json({ message: 'Success' });
+    }
+    catch (error) { }
+};
+exports.anySample = anySample;

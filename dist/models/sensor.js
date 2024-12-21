@@ -19,7 +19,7 @@ const sensorSchema = new Schema({
     },
     measureType: {
         type: String,
-        enum: ['fill_level', 'battery_level', 'noise_level'],
+        enum: ['fill_level', 'battery_level', 'noise_level', 'signal_level'],
         required: true,
     },
     unit: {
@@ -38,6 +38,10 @@ const sensorSchema = new Schema({
             default: '',
         },
     ],
+    ttnDeviceName: {
+        type: String,
+        required: true,
+    }
 }, {
     timestamps: true,
 });

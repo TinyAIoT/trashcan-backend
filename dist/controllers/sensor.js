@@ -13,6 +13,7 @@ exports.postNoiseSensor = exports.postSensor = exports.getSensorById = exports.g
 const trashbin_1 = require("../models/trashbin");
 const project_1 = require("../models/project");
 const sensor_1 = require("../models/sensor");
+const mqttClient_1 = require("../mqttClient");
 const getAllSensors = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         // Implement logic to get all sensors
@@ -43,7 +44,7 @@ const getSensorById = (req, res, next) => __awaiter(void 0, void 0, void 0, func
 exports.getSensorById = getSensorById;
 const postSensor = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const { trashbinID, measureType, applianceType } = req.body;
+        const { trashbinID, measureType, applianceType, ttnDeviceName } = req.body;
         const userID = req.user.id;
         const userRole = req.user.role;
         if (!trashbinID && applianceType === 'trashbin') {
@@ -74,11 +75,13 @@ const postSensor = (req, res, next) => __awaiter(void 0, void 0, void 0, functio
             trashbin: trashbinID,
             measureType,
             applianceType,
+            ttnDeviceName,
         });
         yield newSensor.save();
         // Push the new sensor ID into the trashbin.sensors array
         trashbin.sensors.push(newSensor._id);
         yield trashbin.save();
+        (0, mqttClient_1.subscribeSensor)(ttnDeviceName);
         return res
             .status(200)
             .json({ message: 'Sensor created successfully', newSensor });

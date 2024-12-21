@@ -43,8 +43,8 @@ export const loginUser = async (req: any, res: any) => {
 export const signupUser = async (req: any, res: any) => {
   console.log('Coming inside signup ====>');
   const { role, email, password, projects, preferences } = req.body;
-  const currentUserId = req.user.id; // Assuming user ID is attached to the request by auth middleware
-  const currentUserRole = req.user.role; // Assuming user role is attached to the request by auth middleware
+   const currentUserId = req.user.id; // Assuming user ID is attached to the request by auth middleware
+   const currentUserRole = req.user.role; // Assuming user role is attached to the request by auth middleware
 
   try {
     // Check if the current user has the right to create the specified role
@@ -59,8 +59,6 @@ export const signupUser = async (req: any, res: any) => {
         .json({ message: 'Cannot create another SUPERADMIN.' });
     }
 
-    console.log('Current User Id =>', currentUserId);
-    console.log('Current User Role =>', currentUserRole);
 
     // Validate email uniqueness
     const existingUser = await User.findOne({ email });

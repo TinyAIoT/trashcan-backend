@@ -12,7 +12,6 @@ import cityRouter from './routes/city';
 import projectRouter from './routes/project';
 import trashbinRouter from './routes/trashbin';
 import sensorRouter from './routes/sensor';
-import trashCollectorRouter from './routes/trashCollector';
 import noiseRouter from './routes/noise';
 import historyRouter from './routes/history';
 import { initializeMQTT } from './mqttClient';
@@ -24,7 +23,7 @@ const PORT = process.env.PORT || 5001;
 
 dotenv.config();
 
-const server = http.createServer(app);
+const server = http.createServer(app) ;
 const io = new SocketIOServer(server, {
   cors: {
     origin: '*',
@@ -57,11 +56,11 @@ app.use(bodyParser.json());
 // Update CORS policy to whitelist every client domain
 app.use((req: any, res: any, next: any) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader(
-    'Access-Control-Allow-Methods',
-    'GET, POST, PUT, PATCH, DELETE, OPTIONS'
-  );
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204); // Stop further processing for preflight
+  }
   next();
 });
 
@@ -70,7 +69,6 @@ app.use('/api/v1/city', cityRouter);
 app.use('/api/v1/project', projectRouter);
 app.use('/api/v1/trashbin', trashbinRouter);
 app.use('/api/v1/sensor', sensorRouter);
-app.use('/api/v1/trash-collector', trashCollectorRouter);
 app.use('/api/v1/noise', noiseRouter);
 app.use('/api/v1/history', historyRouter);
 

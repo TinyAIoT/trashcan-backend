@@ -8,11 +8,16 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testHistory = exports.getTrashbinsAssignedToTrashCollector = exports.createTrashCollector = exports.assignTrashbinsToTrashCollector = void 0;
+exports.testHistory = exports.getTrashbinsAssignedToTrashCollector = exports.createTrashCollector = exports.getTrashCollector = exports.assignTrashbinsToTrashCollector = void 0;
 const trashbin_1 = require("../models/trashbin");
 const trashcollector_1 = require("../models/trashcollector");
 const mqtt_1 = require("../utils/mqtt");
+const project_1 = require("../models/project");
+const mongoose_1 = __importDefault(require("mongoose"));
 const assignTrashbinsToTrashCollector = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userRole = req.user.role;
@@ -65,6 +70,42 @@ const assignTrashbinsToTrashCollector = (req, res, next) => __awaiter(void 0, vo
     }
 });
 exports.assignTrashbinsToTrashCollector = assignTrashbinsToTrashCollector;
+const getTrashCollector = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
+    try {
+        const projectQuery = req.query.project;
+        let trashcollectors;
+        let count;
+        if (projectQuery) {
+            // Check if the projectQuery is a valid ObjectId
+            if (mongoose_1.default.Types.ObjectId.isValid(projectQuery)) {
+                trashcollectors = yield trashcollector_1.TrashCollector.find({ project: projectQuery })
+                    .populate('assignee')
+                    .populate('project');
+            }
+            else {
+                // If not a valid ObjectId, assume it's an identifier
+                const project = yield project_1.Project.findOne({ identifier: projectQuery });
+                if (project) {
+                    trashcollectors = yield trashcollector_1.TrashCollector.find({ project: project._id })
+                        .populate('assignee')
+                        .populate('project');
+                }
+                else {
+                    return res.status(404).json({ message: 'Project not found' });
+                }
+            }
+        }
+        else {
+            trashcollectors = yield trashcollector_1.TrashCollector.find();
+        }
+        count = trashcollectors.length;
+        return res.status(200).json({ count, trashcollectors });
+    }
+    catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+});
+exports.getTrashCollector = getTrashCollector;
 const createTrashCollector = (req, res, next) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const userRole = req.user.role;

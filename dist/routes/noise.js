@@ -7,4 +7,5 @@ const router = (0, express_1.Router)();
 // Add history for noise
 router.post('/history', authenticate_1.authenticateNoise, noise_1.addNoiseHistory);
 router.get('/history/sensor/:sensorId', authenticate_1.authenticateToken, noise_1.getNoiseSensorHistoryBySensorId);
+router.get('/any-sample', noise_1.anySample);
 exports.default = router;
