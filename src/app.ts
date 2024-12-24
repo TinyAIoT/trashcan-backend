@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { response } from 'express';
 import bodyParser from 'body-parser';
 import cors from 'cors';
 import mongoose from 'mongoose';
@@ -13,13 +13,17 @@ import projectRouter from './routes/project';
 import trashbinRouter from './routes/trashbin';
 import sensorRouter from './routes/sensor';
 import trashCollectorRouter from './routes/trashCollector';
+import { updateFillLevelChangesCore } from './controllers/trashbin';
 import noiseRouter from './routes/noise';
 import historyRouter from './routes/history';
 import { initializeMQTT } from './mqttClient';
 
 const mqtt = require('mqtt');
 
+
 const app = express();
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 5001;
 
 dotenv.config();
@@ -52,8 +56,8 @@ globalEventEmitter.on('mqttMessage', (topic: string, message: string) => {
 initializeMQTT(globalEventEmitter);
 
 // Middleware
-app.use(bodyParser.json());
-
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 // Update CORS policy to whitelist every client domain
 app.use((req: any, res: any, next: any) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -77,8 +81,13 @@ app.use('/api/v1/history', historyRouter);
 // Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_DB_URL || '', {})
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.log(err));
+  .then(async () => {
+    console.log('MongoDB connected');
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+  });
+
 
 // Define a route
 app.get('/', (req, res) => {

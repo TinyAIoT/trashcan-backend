@@ -1,11 +1,11 @@
 import { generateUniqueTrashbinIdentifier } from '../service/trashbin';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
+import { History } from '../models/history';
 import mongoose from 'mongoose';
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
   try {
-    console.log('Inside Trash Can');
     const projectId = req.body.project;
     const trashcanName = req.body.name;
     const longitude = req.body.longitude;
@@ -39,7 +39,7 @@ export const createTrashItem = async (req: any, res: any, next: any) => {
 
       // Fetch location string from the longitude and latitude
 
-      console.log('Coming inside line # 41');
+    
 
       const trashbin = new Trashbin({
         name: trashcanName,
@@ -171,6 +171,9 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
     const projectQuery = req.query.project;
     let trashbins;
     let count;
+     if(!projectQuery){
+      return res.status(400).json({ message: "Project query parameter is required" });
+     }
 
     if (projectQuery) {
       // Check if the projectQuery is a valid ObjectId
@@ -181,10 +184,16 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
       } else {
         // If not a valid ObjectId, assume it's an identifier
         const project = await Project.findOne({ identifier: projectQuery });
+        if (!project) {
+          console.error("Project not found for identifier:", projectQuery);
+          return res.status(404).json({ message: "Project not found" });
+        }
         if (project) {
           trashbins = await Trashbin.find({ project: project._id })
             .populate('assignee')
             .populate('project');
+              
+
         } else {
           return res.status(404).json({ message: 'Project not found' });
         }
@@ -360,3 +369,118 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+export const updateFillLevelChangesCore = async (req: any, res: any): Promise<void> => {
+  try {
+    const { hours } = req.body;
+
+    // Validate `hours`
+    if (hours !== undefined && (typeof hours !== 'number' || hours < 0)) {
+      return res
+        .status(400)
+        .json({ error: '`hours` must be a positive number or null.' });
+    }
+
+    // Fetch all trashbins
+    const trashbins = await Trashbin.find();
+    if (!trashbins.length) {
+      console.warn('No trashbins found.');
+      return res.status(404).json({ message: 'No trashbins found.' });
+    }
+
+    // Iterate over each trashbin
+    for (const trashbin of trashbins) {
+      let totalFillLevelChange = 0;
+
+      // Skip if no sensors
+      if (!trashbin.sensors || trashbin.sensors.length === 0) {
+        continue;
+      }
+
+      // Process each sensor for the current trashbin
+      for (const sensorId of trashbin.sensors) {
+        // 1) Find the single most recent history entry for this sensor
+        const newestRecord = await History.findOne({
+          sensor: new mongoose.Types.ObjectId(sensorId),
+          measureType: 'fill_level',
+        })
+          .sort({ createdAt: -1 }) // newest first
+          .lean();
+
+        if (!newestRecord) {
+          // No history at all for this sensor
+          console.warn(`No history found for sensor ${sensorId}`);
+          continue;
+        }
+
+        // The newest history's timestamp
+        const newestDate = new Date(newestRecord.createdAt);
+        const newestMeasurement = newestRecord.measurement;
+
+        // 2) Derive the cutoff date: (newestDate - hours)
+        //    If `hours` is undefined, default to 0 => entire timeline
+        const effectiveHours = hours ?? 0;
+        const cutoffDate = new Date(
+          newestDate.getTime() - effectiveHours * 60 * 60 * 1000
+        );
+
+        // 3) Find all histories in [cutoffDate, newestDate], sorted ascending by createdAt
+        const histories = await History.aggregate([
+          {
+            $match: {
+              sensor: new mongoose.Types.ObjectId(sensorId),
+              measureType: 'fill_level',
+              $expr: {
+                $and: [
+                  { $gte: [{ $toDate: '$createdAt' }, cutoffDate] },
+                  { $lte: [{ $toDate: '$createdAt' }, newestDate] },
+                ],
+              },
+            },
+          },
+          { $sort: { createdAt: 1 } }, // oldest to newest in this range
+        ]);
+
+        if (histories.length > 0) {
+          // oldestMeasurement = first in the list
+          const oldestMeasurement = histories[0].measurement;
+          // newestMeasurement (already from newestRecord) should be same as histories[histories.length - 1], 
+          // but we can double-check or simply rely on newestRecord
+          const actualNewestMeasurement = histories[histories.length - 1].measurement;
+
+          // For clarity, let's use actualNewestMeasurement:
+          const fillLevelChange = actualNewestMeasurement - oldestMeasurement;
+          totalFillLevelChange += fillLevelChange;
+        } else {
+          console.warn(
+            `No valid history between cutoffDate=${cutoffDate} and newestDate=${newestDate} for sensor ${sensorId}`
+          );
+        }
+      }
+
+      // Update trashbin's total fill-level change
+      if (totalFillLevelChange !== 0) {
+        await Trashbin.findByIdAndUpdate(trashbin._id, {
+          fillLevelChange: totalFillLevelChange,
+        });
+      } else {
+        console.log(`No changes to update for Trashbin: ${trashbin._id}`);
+      }
+    }
+
+    res.status(200).json({
+      message: 'Fill-level changes updated successfully for all trashbins.',
+    });
+  } catch (error) {
+    console.error('Error updating fill-level changes:', error);
+    res.status(500).json({
+      error: 'An error occurred while updating fill-level changes.',
+    });
+  }
+};
+
+
+
+
+
