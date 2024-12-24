@@ -370,18 +370,18 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
   }
 };
 
+
 export const updateFillLevelChangesCore = async (req: any, res: any): Promise<void> => {
   try {
     const { hours } = req.body;
-    // Validate the `hours` input
+
+    // Validate `hours`
     if (hours !== undefined && (typeof hours !== 'number' || hours < 0)) {
-      return res.status(400).json({ error: '`hours` must be a positive number or null.' });
+      return res
+        .status(400)
+        .json({ error: '`hours` must be a positive number or null.' });
     }
 
-    const now: Date = new Date();
-    const cutoffDate: Date = hours
-      ? new Date(now.getTime() - hours * 60 * 60 * 1000)
-      : new Date(0); // Default to epoch if hours is null
     // Fetch all trashbins
     const trashbins = await Trashbin.find();
     if (!trashbins.length) {
@@ -393,13 +393,39 @@ export const updateFillLevelChangesCore = async (req: any, res: any): Promise<vo
     for (const trashbin of trashbins) {
       let totalFillLevelChange = 0;
 
-      if (!trashbin.sensors || trashbin.sensors.length === 0) {     
+      // Skip if no sensors
+      if (!trashbin.sensors || trashbin.sensors.length === 0) {
         continue;
       }
 
       // Process each sensor for the current trashbin
       for (const sensorId of trashbin.sensors) {
-        // Query to find all history, converting string dates dynamically
+        // 1) Find the single most recent history entry for this sensor
+        const newestRecord = await History.findOne({
+          sensor: new mongoose.Types.ObjectId(sensorId),
+          measureType: 'fill_level',
+        })
+          .sort({ createdAt: -1 }) // newest first
+          .lean();
+
+        if (!newestRecord) {
+          // No history at all for this sensor
+          console.warn(`No history found for sensor ${sensorId}`);
+          continue;
+        }
+
+        // The newest history's timestamp
+        const newestDate = new Date(newestRecord.createdAt);
+        const newestMeasurement = newestRecord.measurement;
+
+        // 2) Derive the cutoff date: (newestDate - hours)
+        //    If `hours` is undefined, default to 0 => entire timeline
+        const effectiveHours = hours ?? 0;
+        const cutoffDate = new Date(
+          newestDate.getTime() - effectiveHours * 60 * 60 * 1000
+        );
+
+        // 3) Find all histories in [cutoffDate, newestDate], sorted ascending by createdAt
         const histories = await History.aggregate([
           {
             $match: {
@@ -408,37 +434,49 @@ export const updateFillLevelChangesCore = async (req: any, res: any): Promise<vo
               $expr: {
                 $and: [
                   { $gte: [{ $toDate: '$createdAt' }, cutoffDate] },
-                  { $lte: [{ $toDate: '$createdAt' }, now] },
+                  { $lte: [{ $toDate: '$createdAt' }, newestDate] },
                 ],
               },
             },
           },
-          { $sort: { createdAt: 1 } }, // Sort by createdAt ascending
+          { $sort: { createdAt: 1 } }, // oldest to newest in this range
         ]);
 
-        if (histories.length >= 1) {
-          const oldestMeasurement = histories[0].measurement; // First entry
-          const newestMeasurement = histories[histories.length - 1].measurement; // Last entry
-          const fillLevelChange = newestMeasurement - oldestMeasurement;
+        if (histories.length > 0) {
+          // oldestMeasurement = first in the list
+          const oldestMeasurement = histories[0].measurement;
+          // newestMeasurement (already from newestRecord) should be same as histories[histories.length - 1], 
+          // but we can double-check or simply rely on newestRecord
+          const actualNewestMeasurement = histories[histories.length - 1].measurement;
 
+          // For clarity, let's use actualNewestMeasurement:
+          const fillLevelChange = actualNewestMeasurement - oldestMeasurement;
           totalFillLevelChange += fillLevelChange;
         } else {
-          console.warn(`No valid history data found for Sensor: ${sensorId}`);
+          console.warn(
+            `No valid history between cutoffDate=${cutoffDate} and newestDate=${newestDate} for sensor ${sensorId}`
+          );
         }
       }
 
       // Update trashbin's total fill-level change
       if (totalFillLevelChange !== 0) {
-        await Trashbin.findByIdAndUpdate(trashbin._id, { fillLevelChange: totalFillLevelChange });
+        await Trashbin.findByIdAndUpdate(trashbin._id, {
+          fillLevelChange: totalFillLevelChange,
+        });
       } else {
         console.log(`No changes to update for Trashbin: ${trashbin._id}`);
       }
     }
 
-    res.status(200).json({ message: 'Fill-level changes updated successfully for all trashbins.' });
+    res.status(200).json({
+      message: 'Fill-level changes updated successfully for all trashbins.',
+    });
   } catch (error) {
     console.error('Error updating fill-level changes:', error);
-    res.status(500).json({ error: 'An error occurred while updating fill-level changes.' });
+    res.status(500).json({
+      error: 'An error occurred while updating fill-level changes.',
+    });
   }
 };
 

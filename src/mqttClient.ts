@@ -4,6 +4,7 @@ import { History } from './models/history';
 import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
+import axios from "axios";
 
 let client: mqtt.MqttClient;
 let subscribedTopics: string[] = [];
@@ -98,6 +99,9 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
           trashbin[0].fillLevel = fillLevel ? Math.round(fillLevel * 100) : 0;
           await trashbin[0].save();
         }
+        await axios.put('http://localhost:5001/api/v1/trashbin/updateFillLevelChanges', {
+          // If you don’t want to send `hours`, send an empty object
+        });
       }
     }
 
