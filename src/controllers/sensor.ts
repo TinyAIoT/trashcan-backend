@@ -32,7 +32,7 @@ export const getSensorById = async (req: any, res: any, next: any) => {
 
 export const postSensor = async (req: any, res: any, next: any) => {
   try {
-    const { trashbinID, measureType, applianceType, ttnDeviceName } = req.body;
+    const { trashbinID, measureType, applianceType, ttnApplicationName, ttnDeviceName } = req.body;
     const userID = req.user.id;
     const userRole = req.user.role;
 
@@ -72,6 +72,7 @@ export const postSensor = async (req: any, res: any, next: any) => {
       trashbin: trashbinID,
       measureType,
       applianceType,
+      ttnApplicationName,
       ttnDeviceName,
     });
 
@@ -81,7 +82,7 @@ export const postSensor = async (req: any, res: any, next: any) => {
     trashbin.sensors.push(newSensor._id);
     await trashbin.save();
 
-    subscribeSensor(ttnDeviceName);
+    subscribeSensor(ttnApplicationName, ttnDeviceName);
 
     return res
       .status(200)

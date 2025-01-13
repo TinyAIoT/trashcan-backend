@@ -34,6 +34,10 @@ const sensorSchema = new Schema(
         default: '',
       },
     ],
+    ttnApplicationName: {
+      type: String,
+      required: true,
+    },
     ttnDeviceName: {
       type: String,
       required: true,
