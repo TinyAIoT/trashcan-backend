@@ -148,11 +148,9 @@ export const getTrashItemById = async (req: any, res: any, next: any) => {
 
     if (mongoose.Types.ObjectId.isValid(trashbinId)) {
       trashbin = await Trashbin.findById(trashbinId)
-        .populate('assignee')
         .populate('project');
     } else {
       trashbin = await Trashbin.findOne({ identifier: trashbinId })
-        .populate('assignee')
         .populate('project');
     }
 
@@ -176,14 +174,12 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
       // Check if the projectQuery is a valid ObjectId
       if (mongoose.Types.ObjectId.isValid(projectQuery)) {
         trashbins = await Trashbin.find({ project: projectQuery })
-          .populate('assignee')
           .populate('project');
       } else {
         // If not a valid ObjectId, assume it's an identifier
         const project = await Project.findOne({ identifier: projectQuery });
         if (project) {
           trashbins = await Trashbin.find({ project: project._id })
-            .populate('assignee')
             .populate('project');
         } else {
           return res.status(404).json({ message: 'Project not found' });
