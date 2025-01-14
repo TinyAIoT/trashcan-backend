@@ -59,8 +59,6 @@ export const signupUser = async (req: any, res: any) => {
         .json({ message: 'Cannot create another SUPERADMIN.' });
     }
 
-    console.log('Current User Id =>', currentUserId);
-    console.log('Current User Role =>', currentUserRole);
 
     // Validate name uniqueness
     const existingUser = await User.findOne({ name });
