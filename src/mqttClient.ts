@@ -4,7 +4,7 @@ import { History } from './models/history';
 import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
-import axios from "axios";
+import { updateFillLevelChanges } from './service';
 
 let client: mqtt.MqttClient;
 let subscribedTopics: string[] = [];
@@ -74,9 +74,9 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
 
     if (fillLevel != undefined) {
       let query = {
-        'measureType': 'fill_level',
-        'ttnDeviceName': ttnDeviceName
-      }
+        measureType: 'fill_level',
+        ttnDeviceName: ttnDeviceName,
+      };
       let sensors = await Sensor.find(query);
       if (sensors.length > 0) {
         const newHistory = new History({
@@ -86,24 +86,42 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         });
         const response = await newHistory.save();
         console.log(ttnDeviceName + ' with adding fill level =>', response);
+    
         eventEmitter.emit('mqttMessage', 'fill_level', {
-          'sensor_id': sensors[0].id,
-          'fill_level': fillLevel,
-          'received_at': message_json.received_at
+          sensor_id: sensors[0].id,
+          fill_level: fillLevel,
+          received_at: message_json.received_at,
         });
-        
+    
         let trashbin = await Trashbin.find({
-          'sensors': sensors[0].id
+          sensors: sensors[0].id,
         });
         if (trashbin.length > 0) {
           trashbin[0].fillLevel = fillLevel ? Math.round(fillLevel * 100) : 0;
           await trashbin[0].save();
         }
-        await axios.put('http://localhost:5001/api/v1/trashbin/updateFillLevelChanges', {
-          // If you don’t want to send `hours`, send an empty object
-        });
+    
+        // Automatically trigger the updateFillLevelChangesCore function
+        const mockRequest = {
+          body: { hours: undefined }, // No value for `hours`
+        };
+        const mockResponse = {
+          status: (code: number) => ({
+            json: (data: any) => console.log(`Response: ${code}`, data),
+          }),
+        };
+    
+        try {
+          console.log("Triggering fill level changes update...");
+          await updateFillLevelChanges(mockRequest as any, mockResponse as any);
+          console.log("Fill level changes update completed.");
+        } catch (error) {
+          console.error('Error updating fill level changes:', error);
+        }
       }
     }
+    
+    
 
     if (signalLevel != undefined) {
       let query = {

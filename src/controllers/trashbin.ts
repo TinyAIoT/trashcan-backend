@@ -3,6 +3,8 @@ import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
 import { History } from '../models/history';
 import mongoose from 'mongoose';
+import { Request, Response } from 'express';
+import { updateFillLevelChanges } from '../service/trashbin'; 
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
   try {
@@ -370,112 +372,16 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
   }
 };
 
+// Adjust the path as needed
 
-export const updateFillLevelChangesCore = async (req: any, res: any): Promise<void> => {
+export const updateFillLevelChangesCore = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { hours } = req.body;
-
-    // Validate `hours`
-    if (hours !== undefined && (typeof hours !== 'number' || hours < 0)) {
-      return res
-        .status(400)
-        .json({ error: '`hours` must be a positive number or null.' });
-    }
-
-    // Fetch all trashbins
-    const trashbins = await Trashbin.find();
-    if (!trashbins.length) {
-      console.warn('No trashbins found.');
-      return res.status(404).json({ message: 'No trashbins found.' });
-    }
-
-    // Iterate over each trashbin
-    for (const trashbin of trashbins) {
-      let totalFillLevelChange = 0;
-
-      // Skip if no sensors
-      if (!trashbin.sensors || trashbin.sensors.length === 0) {
-        continue;
-      }
-
-      // Process each sensor for the current trashbin
-      for (const sensorId of trashbin.sensors) {
-        // 1) Find the single most recent history entry for this sensor
-        const newestRecord = await History.findOne({
-          sensor: new mongoose.Types.ObjectId(sensorId),
-          measureType: 'fill_level',
-        })
-          .sort({ createdAt: -1 }) // newest first
-          .lean();
-
-        if (!newestRecord) {
-          // No history at all for this sensor
-          console.warn(`No history found for sensor ${sensorId}`);
-          continue;
-        }
-
-        // The newest history's timestamp
-        const newestDate = new Date(newestRecord.createdAt);
-        const newestMeasurement = newestRecord.measurement;
-
-        // 2) Derive the cutoff date: (newestDate - hours)
-        //    If `hours` is undefined, default to 0 => entire timeline
-        const effectiveHours = hours ?? 0;
-        const cutoffDate = new Date(
-          newestDate.getTime() - effectiveHours * 60 * 60 * 1000
-        );
-
-        // 3) Find all histories in [cutoffDate, newestDate], sorted ascending by createdAt
-        const histories = await History.aggregate([
-          {
-            $match: {
-              sensor: new mongoose.Types.ObjectId(sensorId),
-              measureType: 'fill_level',
-              $expr: {
-                $and: [
-                  { $gte: [{ $toDate: '$createdAt' }, cutoffDate] },
-                  { $lte: [{ $toDate: '$createdAt' }, newestDate] },
-                ],
-              },
-            },
-          },
-          { $sort: { createdAt: 1 } }, // oldest to newest in this range
-        ]);
-
-        if (histories.length > 0) {
-          // oldestMeasurement = first in the list
-          const oldestMeasurement = histories[0].measurement;
-          // newestMeasurement (already from newestRecord) should be same as histories[histories.length - 1], 
-          // but we can double-check or simply rely on newestRecord
-          const actualNewestMeasurement = histories[histories.length - 1].measurement;
-
-          // For clarity, let's use actualNewestMeasurement:
-          const fillLevelChange = actualNewestMeasurement - oldestMeasurement;
-          totalFillLevelChange += fillLevelChange;
-        } else {
-          console.warn(
-            `No valid history between cutoffDate=${cutoffDate} and newestDate=${newestDate} for sensor ${sensorId}`
-          );
-        }
-      }
-
-      // Update trashbin's total fill-level change
-      if (totalFillLevelChange !== 0) {
-        await Trashbin.findByIdAndUpdate(trashbin._id, {
-          fillLevelChange: totalFillLevelChange,
-        });
-      } else {
-        console.log(`No changes to update for Trashbin: ${trashbin._id}`);
-      }
-    }
-
-    res.status(200).json({
-      message: 'Fill-level changes updated successfully for all trashbins.',
-    });
+    // Delegate the request and response handling to the service function
+    await updateFillLevelChanges(req, res);
   } catch (error) {
-    console.error('Error updating fill-level changes:', error);
+    console.error('Error in updateFillLevelChangesController:', error);
     res.status(500).json({
-      error: 'An error occurred while updating fill-level changes.',
+      error: 'An error occurred while processing the request.',
     });
   }
 };
