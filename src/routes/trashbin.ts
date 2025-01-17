@@ -4,6 +4,7 @@ import {
   getTrashItemById,
   createTrashItem,
   updateTrashItem,
+  updateFillLevelChangesCore, 
   addMultipleTrashItems,
 } from '../controllers/trashbin';
 import { authenticateToken } from '../middleware/authenticate';
@@ -17,6 +18,8 @@ router.get('/', authenticateToken, getAllTrashItems);
 
 // Create a new trash item
 router.post('/', authenticateToken, createTrashItem);
+//update fill level change
+router.put('/updateFillLevelChanges', updateFillLevelChangesCore);
 
 router.patch('/:id', authenticateToken, updateTrashItem);
 
