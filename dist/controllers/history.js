@@ -15,18 +15,16 @@ const history_1 = require("../models/history");
 // Define the route controller function to handle posting history data
 const postHistory = (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        // const fillLevelSensorId = '668e6979f3b1e021dfba6aed';
-        // const batteryLevelSensorId = '668e69a3f3b1e021dfba6af3';
-        // const noiseSensorId = '668e6b79e921750c7a2fe08d';
+        const noiseSensorId = '668e6b79e921750c7a2fe08d';
         // const noiseSensor = await Sensor.findOne({ _id: noiseSensorId });
         // for (const data of noiseData) {
         //   if (data.noise_level !== undefined) {
-        //     console.log('Coming inside noise level ===>');
         //     if (noiseSensor) {
         //       const newHistory = new History({
         //         sensor: noiseSensor._id,
         //         measureType: 'noise_level',
         //         measurement: data.noise_level,
+        //         noisePrediction: data.value,
         //       });
         //       await newHistory.save();
         //       noiseSensor.history.push(newHistory._id);
