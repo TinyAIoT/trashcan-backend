@@ -75,13 +75,14 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
 
               const newestDate = new Date(newestRecord.createdAt);
               const newestMeasurement = newestRecord.measurement;
+              console.log("Sensor this ",sensorId ,"newest date",newestDate,"new measurement",newestMeasurement)
 
               // Derive the cutoff date
               const effectiveHours = hours ?? 0;
               const cutoffDate = new Date(
                 newestDate.getTime() - effectiveHours * 60 * 60 * 1000
               );
-
+              console.log("cutoof date",cutoffDate)
               // Fetch all histories within the specified time range
               const histories = await History.aggregate([
                 {
@@ -98,15 +99,12 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
                 },
                 { $sort: { createdAt: 1 } }, // Oldest to newest
               ]);
-
+             // console.log("histories of sensors", histories)
               if (histories.length > 0) {
                 const oldestMeasurement = histories[0].measurement;
-                const actualNewestMeasurement =
-                  histories[histories.length - 1].measurement;
-
                 // Calculate the fill level change
                 const fillLevelChange =
-                  actualNewestMeasurement - oldestMeasurement;
+                  newestMeasurement - oldestMeasurement;
                 totalFillLevelChange += fillLevelChange;
               } else {
                 console.warn(
@@ -128,7 +126,7 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
             fillLevelChange: totalFillLevelChange,
           });
         } else {
-          console.log(`No changes to update for Trashbin: ${trashbin._id}`);
+        //  console.log(`No changes to update for Trashbin: ${trashbin._id}`);
         }
       })
     );
