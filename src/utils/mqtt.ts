@@ -116,7 +116,7 @@ export const mqttTrashParser = (message: unknown): Result => {
   // Convert extracted measurements
   result.batteryLevel = getPiecewiseFraction(voltage, voltageSamples);
   // TODO: Adjust the minimum and maximum to match real trash bin depth
-  result.fillLevel = 1 - ((distance>500) ? 1 : getPiecewiseFraction(distance, [50, 500]) ?? 0);
+  result.fillLevel = 1 - ((distance>530) ? 1 : getPiecewiseFraction(distance, [170, 530]) ?? 0);
   result.signalLevel = (getPiecewiseFraction(rssi, [-120, -70]) ?? 0);
 
   return result;
