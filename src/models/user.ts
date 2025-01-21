@@ -8,7 +8,7 @@ const userSchema = new Schema(
       enum: ['USER', 'ADMIN', 'SUPERADMIN'],
       required: true,
     },
-    email: {
+    name: {
       type: String,
       required: true,
       unique: true,
