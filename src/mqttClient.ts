@@ -1,76 +1,71 @@
 import mqtt from 'mqtt';
-import { mqttTrashParser } from './utils/mqtt';
+import { mqttTrashParser, mqttOldAppParser } from './utils/mqtt';
 import { History } from './models/history';
 import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
 import { updateFillLevelChanges } from './service';
 
-let client: mqtt.MqttClient;
-let subscribedTopics: string[] = [];
+let clients: Record<string, mqtt.MqttClient> = {}; // Store clients for multiple applications
+let subscribedTopics: Record<string, string[]> = {}; // Track topics per application
 
 export function initializeMQTT(eventEmitter: EventEmitter) {
-  client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
-    username: process.env.MQTT_CLIENT_NAME,
-    password: process.env.MQTT_CLIENT_KEY,
+  // Define application configurations
+  const applications = [
+    {
+      name: process.env.MQTT_CLIENT_NAME,
+      key: process.env.MQTT_CLIENT_KEY,
+      parser: mqttTrashParser,
+    },
+    {
+      name: process.env.OLD_MQTT_CLIENT_NAME,
+      key: process.env.OLD_MQTT_CLIENT_KEY,
+      parser: mqttOldAppParser,
+    },
+  ];
+
+  applications.forEach((app) => {
+    if (app.name && app.key) {
+      initializeApplicationMQTT(app as { name: string; key: string; parser: Function }, eventEmitter);
+    } else {
+      console.error(`Missing MQTT client name or key for application: ${app.name}`);
+    }
+  });
+}
+
+function initializeApplicationMQTT(
+  app: { name: string; key: string; parser: Function },
+  eventEmitter: EventEmitter
+) {
+  const client = mqtt.connect('mqtt://eu1.cloud.thethings.network:1883', {
+    username: app.name,
+    password: app.key,
   });
 
+  clients[app.name] = client; // Store the client
+  subscribedTopics[app.name] = []; // Initialize subscribed topics for this app
+
   client.on('connect', async () => {
-    console.log('Connected to MQTT broker');
-    let sensors = await Sensor.find();
+    console.log(`Connected to MQTT broker for application: ${app.name}`);
+    const sensors = await Sensor.find({ ttnApplicationName: app.name });
     if (sensors.length > 0) {
-      const uniqueDeviceNames = [...new Set(sensors.map(obj => obj.ttnDeviceName))];
-      uniqueDeviceNames.forEach(deviceName => {
-        subscribeSensor(deviceName);
-      })
+      const uniqueDeviceNames = [...new Set(sensors.map((obj) => obj.ttnDeviceName))];
+      uniqueDeviceNames.forEach((deviceName) => {
+        subscribeSensor(app.name, deviceName);
+      });
     }
   });
 
   client.on('message', async (topic: any, message: any) => {
-    console.log('EVENT RECIEVED with TOPIC', topic);
-    console.log('Received message:', message.toString());
+    console.log(`[${app.name}] EVENT RECEIVED with TOPIC`, topic);
+    console.log(`[${app.name}] Received message:`, message.toString());
 
-    const message_json = JSON.parse(message);
-
-    const { batteryLevel, fillLevel, signalLevel } = mqttTrashParser(
-      message_json
-    );
-    // const message_parsed = JSON.parse(message);
-    // const batteryLevel = message_parsed.battery_level;
-    // const fillLevel = message_parsed.fill_level;
-    // const signalLevel = message_parsed.signal_level;
-    let ttnDeviceName = topic.replace('v3/' + process.env.MQTT_CLIENT_NAME + '/devices/', '');
+    const messageJson = JSON.parse(message);
+    const { batteryLevel, fillLevel, signalLevel } = app.parser(messageJson);
+    
+    
+    let ttnDeviceName = topic.replace(`v3/${app.name}/devices/`, '');
     ttnDeviceName = ttnDeviceName.replace('/up', '');
-
-    if (batteryLevel != undefined) {
-      let query = {
-        'measureType': 'battery_level',
-        'ttnDeviceName': ttnDeviceName
-      }
-      let sensors = await Sensor.find(query);
-      if (sensors.length > 0) {
-        const newHistory = new History({
-          sensor: sensors[0].id,
-          measureType: 'battery_level',
-          measurement: batteryLevel ? Math.round(batteryLevel * 100) : 0,
-        });
-        const response = await newHistory.save();
-        console.log(ttnDeviceName + ' with adding battery level =>', response);
-        eventEmitter.emit('mqttMessage', 'battery_level', {
-          'sensor_id': sensors[0].id,
-          'battery_level': batteryLevel,
-          'received_at': message_json.received_at
-        });
-
-        let trashbin = await Trashbin.find({
-          'sensors': sensors[0].id
-        });
-        if (trashbin.length > 0) {
-          trashbin[0].batteryLevel = batteryLevel ? Math.round(batteryLevel * 100) : 0;
-          await trashbin[0].save();
-        }
-      }
-    }
 
     if (fillLevel != undefined) {
       let query = {
@@ -120,56 +115,86 @@ export function initializeMQTT(eventEmitter: EventEmitter) {
         }
       }
     }
-    
-    
 
-    if (signalLevel != undefined) {
-      let query = {
-        'measureType': 'signal_level',
-        'ttnDeviceName': ttnDeviceName
-      }
-      let sensors = await Sensor.find(query);
-      if (sensors.length > 0) {
-        const newHistory = new History({
-          sensor: sensors[0].id,
-          measureType: 'signal_level',
-          measurement: signalLevel ? Math.round(signalLevel * 100) : 0,
-        });
-        const response = await newHistory.save();
-        console.log(ttnDeviceName + ' with adding signal level =>', response);
-        eventEmitter.emit('mqttMessage', 'signal_level', {
-          'sensor_id': sensors[0].id,
-          'signal_level': signalLevel,
-          'received_at': message_json.received_at
-        });
-        
-        let trashbin = await Trashbin.find({
-          'sensors': sensors[0].id
-        });
-        if (trashbin.length > 0) {
-          trashbin[0].signalStrength = signalLevel ? Math.round(signalLevel * 100) : 0;
-          await trashbin[0].save();
-        }
-      }
-    }
+    handleSensorData(eventEmitter, app.name, ttnDeviceName, batteryLevel, fillLevel, signalLevel, messageJson.received_at);
   });
 
   client.on('error', (error: any) => {
-    console.error('MQTT connection error:', error);
+    console.error(`[${app.name}] MQTT connection error:`, error);
   });
-  return client;
 }
 
-export function subscribeSensor(deviceName: string) {
-  if (!client) {
-    throw new Error('MQTT client not initialized');
+async function handleSensorData(
+  eventEmitter: EventEmitter,
+  appName: string,
+  ttnDeviceName: string,
+  batteryLevel?: number,
+  fillLevel?: number,
+  signalLevel?: number,
+  receivedAt?: string
+) {
+  if (batteryLevel != undefined) {
+    await updateSensorData(eventEmitter, appName, ttnDeviceName, 'battery_level', batteryLevel, receivedAt);
   }
 
-  const topic = `v3/` + process.env.MQTT_CLIENT_NAME + `/devices/` + deviceName + `/up`;
-  if(!subscribedTopics.includes(topic)) {
+  if (fillLevel != undefined) {
+    await updateSensorData(eventEmitter, appName, ttnDeviceName, 'fill_level', fillLevel, receivedAt);
+  }
+
+  if (signalLevel != undefined) {
+    await updateSensorData(eventEmitter, appName, ttnDeviceName, 'signal_level', signalLevel, receivedAt);
+  }
+}
+
+async function updateSensorData(
+  eventEmitter: EventEmitter,
+  appName: string,
+  ttnDeviceName: string,
+  measureType: string,
+  measurement: number,
+  receivedAt?: string
+) {
+  const query = {
+    measureType,
+    ttnDeviceName,
+    ttnApplicationName: appName,
+  };
+
+  const sensors = await Sensor.find(query);
+  if (sensors.length > 0) {
+    const newHistory = new History({
+      sensor: sensors[0].id,
+      measureType,
+      measurement: Math.round(measurement * 100),
+    });
+    const response = await newHistory.save();
+    console.log(`${ttnDeviceName} with adding ${measureType} =>`, response);
+    eventEmitter.emit('mqttMessage', measureType, {
+      sensor_id: sensors[0].id,
+      [measureType]: measurement,
+      received_at: receivedAt,
+    });
+
+    const trashbin = await Trashbin.find({ sensors: sensors[0].id });
+    if (trashbin.length > 0) {
+      const key: 'signalStrength' | 'batteryLevel' | 'fillLevel' = measureType === 'signal_level' ? 'signalStrength' : (measureType=== 'fill_level') ? 'fillLevel' : 'batteryLevel';
+      trashbin[0][key] = Math.round(measurement * 100);
+      await trashbin[0].save();
+    }
+  }
+}
+
+export function subscribeSensor(appName: string, deviceName: string) {
+  const client = clients[appName];
+  if (!client) {
+    throw new Error(`MQTT client for application '${appName}' not initialized`);
+  }
+
+  const topic = `v3/${appName}/devices/${deviceName}/up`;
+  if (!subscribedTopics[appName].includes(topic)) {
     client.subscribe(topic, () => {
-      subscribedTopics.push(topic);
-      console.log(`Subscribed to topic '${topic}'`);
+      subscribedTopics[appName].push(topic);
+      console.log(`[${appName}] Subscribed to topic '${topic}'`);
     });
   }
 }
