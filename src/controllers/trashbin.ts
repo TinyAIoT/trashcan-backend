@@ -1,11 +1,13 @@
 import { generateUniqueTrashbinIdentifier } from '../service/trashbin';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
+import { History } from '../models/history';
 import mongoose from 'mongoose';
+import { Request, Response } from 'express';
+import { updateFillLevelChanges } from '../service/trashbin'; 
 
 export const createTrashItem = async (req: any, res: any, next: any) => {
   try {
-    console.log('Inside Trash Can');
     const projectId = req.body.project;
     const trashcanName = req.body.name;
     const longitude = req.body.longitude;
@@ -39,7 +41,7 @@ export const createTrashItem = async (req: any, res: any, next: any) => {
 
       // Fetch location string from the longitude and latitude
 
-      console.log('Coming inside line # 41');
+    
 
       const trashbin = new Trashbin({
         name: trashcanName,
@@ -169,6 +171,9 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
     const projectQuery = req.query.project;
     let trashbins;
     let count;
+     if(!projectQuery){
+      return res.status(400).json({ message: "Project query parameter is required" });
+     }
 
     if (projectQuery) {
       // Check if the projectQuery is a valid ObjectId
@@ -178,9 +183,15 @@ export const getAllTrashItems = async (req: any, res: any, next: any) => {
       } else {
         // If not a valid ObjectId, assume it's an identifier
         const project = await Project.findOne({ identifier: projectQuery });
+        if (!project) {
+          console.error("Project not found for identifier:", projectQuery);
+          return res.status(404).json({ message: "Project not found" });
+        }
         if (project) {
           trashbins = await Trashbin.find({ project: project._id })
             .populate('project');
+              
+
         } else {
           return res.status(404).json({ message: 'Project not found' });
         }
@@ -356,3 +367,22 @@ export const addMultipleTrashItems = async (req: any, res: any, next: any) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Adjust the path as needed
+
+export const updateFillLevelChangesCore = async (req: Request, res: Response): Promise<void> => {
+  try {
+    // Delegate the request and response handling to the service function
+    await updateFillLevelChanges(req, res);
+  } catch (error) {
+    console.error('Error in updateFillLevelChangesController:', error);
+    res.status(500).json({
+      error: 'An error occurred while processing the request.',
+    });
+  }
+};
+
+
+
+
+

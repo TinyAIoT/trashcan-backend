@@ -4,6 +4,7 @@ import {
   getTrashItemById,
   createTrashItem,
   updateTrashItem,
+  updateFillLevelChangesCore, 
   addMultipleTrashItems,
 } from '../controllers/trashbin';
 import { authenticateToken } from '../middleware/authenticate';
@@ -17,6 +18,9 @@ router.get('/', authenticateToken, getAllTrashItems);
 
 // Create a new trash item
 router.post('/', authenticateToken, createTrashItem);
+
+// TODO: We dont need this route. The logic of updateFillLevelChangesCore should be part of updating the project...
+router.put('/updateFillLevelChanges', updateFillLevelChangesCore);
 
 router.patch('/:id', authenticateToken, updateTrashItem);
 

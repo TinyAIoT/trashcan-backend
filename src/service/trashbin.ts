@@ -1,6 +1,8 @@
 import { City } from '../models/city';
 import { Project } from '../models/project';
 import { Trashbin } from '../models/trashbin';
+import mongoose from 'mongoose';
+import { History } from '../models/history';
 
 export const generateUniqueTrashbinIdentifier = async (projectId: string) => {
   const project: any = await Project.findById(projectId);
@@ -25,4 +27,105 @@ export const generateUniqueTrashbinIdentifier = async (projectId: string) => {
   const counter = (latestTrashbinCounter + 1).toString().padStart(4, '0');
 
   return `${formattedCityName}-trashbin-${counter}`;
+};
+export const updateFillLevelChanges = async (req: any, res: any): Promise<void> => {
+  try {
+    const { hours } = req.body;
+
+    // Validate `hours`
+    if (hours !== undefined && (typeof hours !== 'number' || hours < 0)) {
+      return res
+        .status(400)
+        .json({ error: '`hours` must be a positive number or null.' });
+    }
+
+    // Fetch all trashbins
+    const trashbins = await Trashbin.find();
+    if (!trashbins.length) {
+      return res.status(404).json({ message: 'No trashbins found.' });
+    }
+
+    // Process each trashbin
+    await Promise.all(
+      trashbins.map(async (trashbin) => {
+        let totalFillLevelChange = 0;
+
+        // Skip if no sensors
+        if (!trashbin.sensors || trashbin.sensors.length === 0) {
+          return;
+        }
+
+        // Process each sensor for the current trashbin
+        await Promise.all(
+          trashbin.sensors.map(async (sensorId) => {
+            try {
+              // Fetch the most recent history entry for this sensor
+              const newestRecord = await History.findOne({
+                sensor: new mongoose.Types.ObjectId(sensorId),
+                measureType: 'fill_level',
+              })
+                .sort({ createdAt: -1 })
+                .lean();
+
+              if (!newestRecord) {
+                return;
+              }
+
+              const newestDate = new Date(newestRecord.createdAt);
+              const newestMeasurement = newestRecord.measurement;
+
+              // Derive the cutoff date
+              const effectiveHours = hours ?? 0;
+              const cutoffDate = new Date(
+                newestDate.getTime() - effectiveHours * 60 * 60 * 1000
+              );
+              // Fetch all histories within the specified time range
+              const histories = await History.aggregate([
+                {
+                  $match: {
+                    sensor: new mongoose.Types.ObjectId(sensorId),
+                    measureType: 'fill_level',
+                    $expr: {
+                      $and: [
+                        { $gte: [{ $toDate: '$createdAt' }, cutoffDate] },
+                        { $lte: [{ $toDate: '$createdAt' }, newestDate] },
+                      ],
+                    },
+                  },
+                },
+                { $sort: { createdAt: 1 } }, // Oldest to newest
+              ]);
+              let fillLevelChange = 0;
+              if (histories.length > 0) {
+                const oldestMeasurement = histories[0].measurement;
+                // Calculate the fill level change
+                fillLevelChange =
+                  newestMeasurement - oldestMeasurement;
+              }
+              totalFillLevelChange += fillLevelChange;
+            } catch (sensorError) {
+              console.error(
+                `Error processing sensor ${sensorId}:`,
+                sensorError
+              );
+            }
+          })
+        );
+
+        // Update the trashbin's total fill-level change
+        await Trashbin.findByIdAndUpdate(trashbin._id, {
+          fillLevelChange: totalFillLevelChange,
+        });
+      })
+    );
+
+    res.status(200).json({
+      message: 'Fill-level changes updated successfully for all trashbins.',
+    });
+  } catch (error) {
+    console.error('Error updating fill-level changes:', error);
+    res.status(500).json({
+      error: 'An error occurred while updating fill-level changes.',
+    });
+  }
 };

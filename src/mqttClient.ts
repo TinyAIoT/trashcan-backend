@@ -4,6 +4,8 @@ import { History } from './models/history';
 import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
+import { updateFillLevelChanges } from './service';
+import { Project } from './models/project';
 
 let clients: Record<string, mqtt.MqttClient> = {}; // Store clients for multiple applications
 let subscribedTopics: Record<string, string[]> = {}; // Track topics per application
@@ -61,9 +63,61 @@ function initializeApplicationMQTT(
 
     const messageJson = JSON.parse(message);
     const { batteryLevel, fillLevel, signalLevel } = app.parser(messageJson);
-
+    
+    
     let ttnDeviceName = topic.replace(`v3/${app.name}/devices/`, '');
     ttnDeviceName = ttnDeviceName.replace('/up', '');
+
+    if (fillLevel != undefined) {
+      let query = {
+        measureType: 'fill_level',
+        ttnDeviceName: ttnDeviceName,
+      };
+      let sensors = await Sensor.find(query);
+      if (sensors.length > 0) {
+        const newHistory = new History({
+          sensor: sensors[0].id,
+          measureType: 'fill_level',
+          measurement: fillLevel ? Math.round(fillLevel * 100) : 0,
+        });
+        const response = await newHistory.save();
+        console.log(ttnDeviceName + ' with adding fill level =>', response);
+    
+        eventEmitter.emit('mqttMessage', 'fill_level', {
+          sensor_id: sensors[0].id,
+          fill_level: fillLevel,
+          received_at: messageJson.received_at,
+        });
+    
+        let trashbin = await Trashbin.find({
+          sensors: sensors[0].id,
+        });
+        if (trashbin.length > 0) {
+          trashbin[0].fillLevel = fillLevel ? Math.round(fillLevel * 100) : 0;
+          await trashbin[0].save();
+          
+          let project = await Project.findById(trashbin[0].project);
+
+          // Automatically trigger the updateFillLevelChangesCore function
+          const mockRequest = {
+            body: { hours: project ? project.fillLevelChangeHours : undefined }, // No value for `hours`
+          };
+          const mockResponse = {
+            status: (code: number) => ({
+              json: (data: any) => console.log(`Response: ${code}`, data),
+            }),
+          };
+      
+          try {
+            console.log("Triggering fill level changes update...");
+            await updateFillLevelChanges(mockRequest as any, mockResponse as any);
+            console.log("Fill level changes update completed.");
+          } catch (error) {
+            console.error('Error updating fill level changes:', error);
+          }
+        }
+      }
+    }
 
     handleSensorData(eventEmitter, app.name, ttnDeviceName, batteryLevel, fillLevel, signalLevel, messageJson.received_at);
   });
