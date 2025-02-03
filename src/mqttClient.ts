@@ -5,6 +5,7 @@ import { Sensor } from './models/sensor';
 import { Trashbin } from './models/trashbin';
 import { EventEmitter } from 'events';
 import { updateFillLevelChanges } from './service';
+import { Project } from './models/project';
 
 let clients: Record<string, mqtt.MqttClient> = {}; // Store clients for multiple applications
 let subscribedTopics: Record<string, string[]> = {}; // Track topics per application
@@ -85,7 +86,7 @@ function initializeApplicationMQTT(
         eventEmitter.emit('mqttMessage', 'fill_level', {
           sensor_id: sensors[0].id,
           fill_level: fillLevel,
-          received_at: message_json.received_at,
+          received_at: messageJson.received_at,
         });
     
         let trashbin = await Trashbin.find({
@@ -94,24 +95,26 @@ function initializeApplicationMQTT(
         if (trashbin.length > 0) {
           trashbin[0].fillLevel = fillLevel ? Math.round(fillLevel * 100) : 0;
           await trashbin[0].save();
-        }
-    
-        // Automatically trigger the updateFillLevelChangesCore function
-        const mockRequest = {
-          body: { hours: undefined }, // No value for `hours`
-        };
-        const mockResponse = {
-          status: (code: number) => ({
-            json: (data: any) => console.log(`Response: ${code}`, data),
-          }),
-        };
-    
-        try {
-          console.log("Triggering fill level changes update...");
-          await updateFillLevelChanges(mockRequest as any, mockResponse as any);
-          console.log("Fill level changes update completed.");
-        } catch (error) {
-          console.error('Error updating fill level changes:', error);
+          
+          let project = await Project.findById(trashbin[0].project);
+
+          // Automatically trigger the updateFillLevelChangesCore function
+          const mockRequest = {
+            body: { hours: project ? project.fillLevelChangeHours : undefined }, // No value for `hours`
+          };
+          const mockResponse = {
+            status: (code: number) => ({
+              json: (data: any) => console.log(`Response: ${code}`, data),
+            }),
+          };
+      
+          try {
+            console.log("Triggering fill level changes update...");
+            await updateFillLevelChanges(mockRequest as any, mockResponse as any);
+            console.log("Fill level changes update completed.");
+          } catch (error) {
+            console.error('Error updating fill level changes:', error);
+          }
         }
       }
     }

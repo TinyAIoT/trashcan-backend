@@ -42,7 +42,6 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
     // Fetch all trashbins
     const trashbins = await Trashbin.find();
     if (!trashbins.length) {
-      console.warn('No trashbins found.');
       return res.status(404).json({ message: 'No trashbins found.' });
     }
 
@@ -69,20 +68,17 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
                 .lean();
 
               if (!newestRecord) {
-                console.warn(`No history found for sensor ${sensorId}`);
                 return;
               }
 
               const newestDate = new Date(newestRecord.createdAt);
               const newestMeasurement = newestRecord.measurement;
-              console.log("Sensor this ",sensorId ,"newest date",newestDate,"new measurement",newestMeasurement)
 
               // Derive the cutoff date
               const effectiveHours = hours ?? 0;
               const cutoffDate = new Date(
                 newestDate.getTime() - effectiveHours * 60 * 60 * 1000
               );
-              console.log("cutoof date",cutoffDate)
               // Fetch all histories within the specified time range
               const histories = await History.aggregate([
                 {
@@ -99,18 +95,14 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
                 },
                 { $sort: { createdAt: 1 } }, // Oldest to newest
               ]);
-             // console.log("histories of sensors", histories)
+              let fillLevelChange = 0;
               if (histories.length > 0) {
                 const oldestMeasurement = histories[0].measurement;
                 // Calculate the fill level change
-                const fillLevelChange =
+                fillLevelChange =
                   newestMeasurement - oldestMeasurement;
-                totalFillLevelChange += fillLevelChange;
-              } else {
-                console.warn(
-                  `No valid history between cutoffDate=${cutoffDate} and newestDate=${newestDate} for sensor ${sensorId}`
-                );
               }
+              totalFillLevelChange += fillLevelChange;
             } catch (sensorError) {
               console.error(
                 `Error processing sensor ${sensorId}:`,
@@ -121,13 +113,9 @@ export const updateFillLevelChanges = async (req: any, res: any): Promise<void> 
         );
 
         // Update the trashbin's total fill-level change
-        if (totalFillLevelChange !== 0) {
-          await Trashbin.findByIdAndUpdate(trashbin._id, {
-            fillLevelChange: totalFillLevelChange,
-          });
-        } else {
-        //  console.log(`No changes to update for Trashbin: ${trashbin._id}`);
-        }
+        await Trashbin.findByIdAndUpdate(trashbin._id, {
+          fillLevelChange: totalFillLevelChange,
+        });
       })
     );
 
