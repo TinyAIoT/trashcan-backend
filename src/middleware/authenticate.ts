@@ -12,7 +12,7 @@ export const authenticateToken = (req: any, res: any, next: any) => {
   if (isTokenExpired(token)) return res.sendStatus(401); // if the token is expired
 
   jwt.verify(token, process.env.JWT_SECRET_KEY, (err: any, user: any) => {
-    if (err) return res.sendStatus(403); // any error means a bad token
+    if (err) return res.sendStatus(401); // any error means a bad token
     req.user = user;
 
     next(); // proceed to the next middleware function
